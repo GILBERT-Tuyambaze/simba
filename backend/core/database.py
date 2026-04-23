@@ -112,9 +112,14 @@ class DatabaseManager:
                 logger.info("Database already initialized")
                 return
 
-        if not settings.database_url:
-            logger.error("No database URL provided. DATABASE_URL environment variable must be set.")
-            raise ValueError("DATABASE_URL environment variable is required")
+        if not settings.database_url or settings.database_url.strip() == "":
+            error_msg = (
+                "DATABASE_URL environment variable is not set or is empty. "
+                "Please configure DATABASE_URL in your environment. "
+                "Example for PostgreSQL: postgresql+asyncpg://user:password@hostname/dbname"
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
 
         try:
             logger.info("Normalizing database URL for async compatibility...")
@@ -156,8 +161,14 @@ class DatabaseManager:
             logger.info("Async session maker created successfully")
 
             logger.info("Database connection initialized successfully")
+        except ValueError:
+            # Re-raise validation errors as-is
+            raise
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}", exc_info=True)
+            logger.error(
+                f"DATABASE_URL (first 50 chars): {settings.database_url[:50]}..." if settings.database_url else "DATABASE_URL: <not set>"
+            )
             raise
 
     async def close_db(self):

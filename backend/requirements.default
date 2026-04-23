@@ -1,6 +1,6 @@
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
-pydantic>=2.5.0,<2.10
+pydantic>=2.7.0,<2.11.0
 pydantic-settings>=2.2.0
 python-dotenv>=1.0.0
 dotenv>=0.9.9
@@ -30,7 +30,7 @@ python-jose[cryptography]>=3.3.0
 firebase-admin>=6.5.0
 
 # aihub module dependencies
-openai==2.16.0
+openai>=1.50.0
 sse-starlette>=1.6.0
 PyMuPDF
 

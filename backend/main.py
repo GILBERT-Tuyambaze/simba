@@ -64,11 +64,30 @@ def setup_logging():
 async def lifespan(app: FastAPI):
     logger = logging.getLogger(__name__)
     logger.info("=== Application startup initiated ===")
+    logger.info(f"Environment: DEBUG={settings.debug}, LAMBDA={settings.is_lambda}")
+    logger.info(f"Backend URL: {settings.backend_url}")
 
     # MODULE_STARTUP_START
-    await initialize_database()
-    await initialize_mock_data()
-    await initialize_admin_user()
+    try:
+        await initialize_database()
+    except ValueError as e:
+        logger.critical(f"STARTUP ERROR - Database configuration error: {e}")
+        raise
+    except Exception as e:
+        logger.critical(f"STARTUP ERROR - Failed to initialize database: {e}", exc_info=True)
+        raise
+    
+    try:
+        await initialize_mock_data()
+    except Exception as e:
+        logger.warning(f"Failed to initialize mock data: {e}")
+        # Don't raise - mock data is optional
+    
+    try:
+        await initialize_admin_user()
+    except Exception as e:
+        logger.warning(f"Failed to initialize admin user: {e}")
+        # Don't raise - admin user is optional
     # MODULE_STARTUP_END
 
     logger.info("=== Application startup completed successfully ===")
