@@ -5,14 +5,16 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { onIdTokenChanged, signOut } from 'firebase/auth';
+import { onIdTokenChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 import {
   clearSessionToken,
   exchangeFirebaseToken,
   getCurrentUser,
   getStoredSessionToken,
   storeSessionToken,
+  shouldRetryFirebaseTokenExchange,
   type AuthUser,
+  type TokenExchangeResponse,
 } from '@/lib/auth';
 import { firebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
 import { canAccessDashboard } from '@/lib/store-roles';
@@ -21,17 +23,55 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   isAdmin: boolean;
+  sessionError: string | null;
   login: () => void;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const TOKEN_EXCHANGE_RETRY_DELAYS_MS = [400, 1200];
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+async function exchangeFirebaseSessionWithRetry(firebaseUser: FirebaseUser): Promise<TokenExchangeResponse> {
+  let idToken = await firebaseUser.getIdToken();
+
+  try {
+    return await exchangeFirebaseToken(idToken);
+  } catch (error) {
+    if (!shouldRetryFirebaseTokenExchange(error)) {
+      throw error;
+    }
+  }
+
+  let lastError: unknown = null;
+  for (const retryDelay of TOKEN_EXCHANGE_RETRY_DELAYS_MS) {
+    await delay(retryDelay);
+    try {
+      idToken = await firebaseUser.getIdToken(true);
+      return await exchangeFirebaseToken(idToken);
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryFirebaseTokenExchange(error)) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('Failed to exchange Firebase token');
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +82,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!token) {
         if (!cancelled) {
           setUser(null);
+          setSessionError(null);
           setLoading(false);
         }
         return;
@@ -55,14 +96,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         if (currentUser) {
           setUser(currentUser);
+          setSessionError(null);
         } else {
           clearSessionToken();
           setUser(null);
+          setSessionError(null);
         }
       } catch {
         if (!cancelled) {
           clearSessionToken();
           setUser(null);
+          setSessionError(null);
         }
       } finally {
         if (!cancelled) {
@@ -86,23 +130,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!firebaseUser) {
         clearSessionToken();
         setUser(null);
+        setSessionError(null);
         setLoading(false);
         return;
       }
 
       try {
-        const idToken = await firebaseUser.getIdToken();
-        const session = await exchangeFirebaseToken(idToken);
+        const session: TokenExchangeResponse = await exchangeFirebaseSessionWithRetry(firebaseUser);
+
         if (cancelled) {
           return;
         }
 
         storeSessionToken(session.token);
         setUser(session.user);
+        setSessionError(null);
       } catch (error) {
         console.warn('Firebase session sync unavailable; continuing without backend session.', error);
         clearSessionToken();
         setUser(null);
+        setSessionError(error instanceof Error ? error.message : 'Failed to sync backend session.');
       } finally {
         if (!cancelled) {
           setLoading(false);
@@ -121,6 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       user,
       loading,
       isAdmin: canAccessDashboard(user?.role),
+      sessionError,
       login: () => {
         window.location.assign('/login');
       },
@@ -135,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         window.location.assign('/');
       },
     }),
-    [loading, user]
+    [loading, sessionError, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

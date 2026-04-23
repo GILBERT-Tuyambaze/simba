@@ -122,7 +122,7 @@ function getReturnPath(
 }
 
 export default function LoginPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, sessionError } = useAuth();
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
@@ -147,6 +147,7 @@ export default function LoginPage() {
   const [invitePreview, setInvitePreview] = useState<Invitation | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [postAuthBusy, setPostAuthBusy] = useState(false);
+  const visibleError = error || sessionError;
 
   useEffect(() => {
     if (!inviteToken) {
@@ -396,12 +397,12 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                {error && (
+                {visibleError && (
                   <div className="flex gap-3 border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                     <div className="space-y-1">
                       <p className="font-semibold text-red-100">{t('auth.signInFailed')}</p>
-                      <p className="text-red-100/80">{error}</p>
+                      <p className="text-red-100/80">{visibleError}</p>
                     </div>
                   </div>
                 )}

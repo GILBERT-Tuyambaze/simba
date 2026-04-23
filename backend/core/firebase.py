@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 from functools import lru_cache
@@ -24,6 +25,21 @@ class FirebaseAuthError(Exception):
 
 def _normalize_private_key(private_key: str) -> str:
     return private_key.replace("\\n", "\n").strip()
+
+
+def _decode_unverified_token_payload(id_token: str) -> Dict[str, Any]:
+    """Decode the JWT payload without verifying the signature for diagnostics only."""
+    try:
+        parts = id_token.split(".")
+        if len(parts) != 3:
+            return {}
+        payload = parts[1]
+        padding = "=" * (-len(payload) % 4)
+        decoded = base64.urlsafe_b64decode(payload + padding)
+        data = json.loads(decoded.decode("utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
 
 def _discover_local_service_account_file() -> Optional[str]:
@@ -77,6 +93,67 @@ def _build_credential_source() -> Optional[Union[str, Dict[str, Any]]]:
         }
 
     return None
+
+
+def _get_expected_firebase_project_id() -> str:
+    configured_project_id = getattr(settings, "firebase_project_id", "").strip()
+    if configured_project_id:
+        return configured_project_id
+
+    credential_source = _build_credential_source()
+    if isinstance(credential_source, dict):
+        return str(credential_source.get("project_id") or "").strip()
+
+    if isinstance(credential_source, str):
+        try:
+            payload = json.loads(Path(credential_source).read_text(encoding="utf-8"))
+            return str(payload.get("project_id") or "").strip()
+        except Exception:
+            return ""
+
+    return ""
+
+
+def _build_invalid_token_error(id_token: str) -> FirebaseAuthError:
+    payload = _decode_unverified_token_payload(id_token)
+    token_project_id = str(payload.get("aud") or "").strip()
+    issuer = str(payload.get("iss") or "").strip()
+    expected_project_id = _get_expected_firebase_project_id()
+
+    if expected_project_id and token_project_id and token_project_id != expected_project_id:
+        return FirebaseAuthError(
+            (
+                "Firebase token project mismatch. "
+                f"Frontend token project is '{token_project_id}', but backend expects '{expected_project_id}'. "
+                "Update the frontend and backend Firebase configuration so both use the same project."
+            ),
+            "project_mismatch",
+        )
+
+    expected_issuer = f"https://securetoken.google.com/{expected_project_id}" if expected_project_id else ""
+    if expected_issuer and issuer and issuer != expected_issuer:
+        return FirebaseAuthError(
+            (
+                "Firebase token issuer mismatch. "
+                f"Frontend token issuer is '{issuer}', but backend expects '{expected_issuer}'. "
+                "Update the frontend and backend Firebase configuration so both use the same project."
+            ),
+            "project_mismatch",
+        )
+
+    if token_project_id:
+        message = (
+            f"Invalid Firebase token for project '{token_project_id}'. "
+            "Sign out and sign in again. If the error persists, check that the frontend and backend Firebase "
+            "configuration both use the same project."
+        )
+    else:
+        message = (
+            "Invalid Firebase token. Sign out and sign in again. "
+            "If the error persists, check that the frontend and backend Firebase configuration both use the same project."
+        )
+
+    return FirebaseAuthError(message, "invalid_token")
 
 
 def get_firebase_app():
@@ -134,7 +211,8 @@ def verify_firebase_id_token(id_token: str) -> Dict[str, Any]:
     except firebase_auth.RevokedIdTokenError as exc:
         raise FirebaseAuthError("Firebase token has been revoked", "token_revoked") from exc
     except firebase_auth.InvalidIdTokenError as exc:
-        raise FirebaseAuthError("Invalid Firebase token", "invalid_token") from exc
+        logger.warning("Firebase Admin rejected ID token: %s", exc)
+        raise _build_invalid_token_error(id_token) from exc
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.exception("Unexpected error while verifying Firebase token")
         raise FirebaseAuthError("Unable to verify Firebase token", "verification_failed") from exc

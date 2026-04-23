@@ -123,3 +123,12 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Authentication f
 
   return message;
 }
+
+export function shouldRetryFirebaseTokenExchange(error: unknown): boolean {
+  const message = getErrorMessage(error, '').toLowerCase();
+  return (
+    message.includes('invalid firebase token') ||
+    message.includes('token has expired') ||
+    message.includes('token has been revoked')
+  );
+}
