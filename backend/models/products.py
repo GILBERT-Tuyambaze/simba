@@ -1,0 +1,45 @@
+from core.database import Base
+from sqlalchemy import Boolean, Column, Float, Integer, String
+
+
+class Products(Base):
+    __tablename__ = "products"
+    __table_args__ = {"extend_existing": True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, nullable=False)
+    name = Column(String, nullable=False)
+    price = Column(Float, nullable=False)
+    category = Column(String, nullable=False)
+    subcategory_id = Column(Integer, nullable=True)
+    in_stock = Column(Boolean, nullable=True)
+    image = Column(String, nullable=True)
+    unit = Column(String, nullable=True)
+    description = Column(String, nullable=True)
+    brand = Column(String, nullable=True)
+    rating = Column(Float, nullable=True)
+    discount = Column(Integer, nullable=True)
+    branch = Column(String, nullable=True)
+    available_for_delivery = Column(Boolean, nullable=True)
+    stock_count = Column(Integer, nullable=True)
+    branch_stock = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
+    attributes = Column(String, nullable=True)
+    variations = Column(String, nullable=True)
+    options = Column(String, nullable=True)
+    addons = Column(String, nullable=True)
+    modifiers = Column(String, nullable=True)
+    upsells = Column(String, nullable=True)
+    cross_sells = Column(String, nullable=True)
+    related_products = Column(String, nullable=True)
+    recommended_products = Column(String, nullable=True)
+    similar_products = Column(String, nullable=True)
+    frequently_bought_together = Column(String, nullable=True)
+    best_seller = Column(Boolean, nullable=True)
+    new_arrival = Column(Boolean, nullable=True)
+    featured = Column(Boolean, nullable=True)
+    on_sale = Column(Boolean, nullable=True)
+    out_of_stock = Column(Boolean, nullable=True)
+    low_stock = Column(Boolean, nullable=True)
+    backorder = Column(Boolean, nullable=True)
+    pre_order = Column(Boolean, nullable=True)
+    discontinued = Column(Boolean, nullable=True)

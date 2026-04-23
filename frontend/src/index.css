@@ -1,0 +1,283 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=VT323&family=Press+Start+2P&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== Industrial Fallout Theme ===== */
+/* Retro CRT-monitor aesthetic for Simba Supermarket */
+
+@layer base {
+  :root {
+    /* Dark mode by default - Industrial Fallout */
+    --background: 120 20% 4%;
+    --foreground: 75 80% 70%;
+
+    --card: 120 20% 6%;
+    --card-foreground: 75 80% 70%;
+
+    --popover: 120 20% 5%;
+    --popover-foreground: 75 80% 70%;
+
+    --primary: 75 85% 60%;
+    --primary-foreground: 120 20% 4%;
+
+    --secondary: 120 15% 10%;
+    --secondary-foreground: 75 80% 70%;
+
+    --muted: 120 15% 9%;
+    --muted-foreground: 75 30% 50%;
+
+    --accent: 45 95% 55%;
+    --accent-foreground: 120 20% 4%;
+
+    --destructive: 15 90% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 75 50% 25%;
+    --input: 120 15% 10%;
+    --ring: 75 85% 60%;
+
+    --radius: 0.125rem;
+
+    --sidebar-background: 120 20% 5%;
+    --sidebar-foreground: 75 80% 70%;
+    --sidebar-primary: 75 85% 60%;
+    --sidebar-primary-foreground: 120 20% 4%;
+    --sidebar-accent: 120 15% 10%;
+    --sidebar-accent-foreground: 75 80% 70%;
+    --sidebar-border: 75 50% 25%;
+    --sidebar-ring: 75 85% 60%;
+  }
+
+  .light {
+    /* Light variant - still industrial but inverted */
+    --background: 45 15% 92%;
+    --foreground: 120 40% 10%;
+    --card: 45 20% 95%;
+    --card-foreground: 120 40% 10%;
+    --popover: 45 20% 95%;
+    --popover-foreground: 120 40% 10%;
+    --primary: 120 60% 25%;
+    --primary-foreground: 45 15% 95%;
+    --secondary: 45 20% 85%;
+    --secondary-foreground: 120 40% 10%;
+    --muted: 45 15% 85%;
+    --muted-foreground: 120 20% 35%;
+    --accent: 15 90% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 85% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 120 20% 60%;
+    --input: 45 20% 85%;
+    --ring: 120 60% 25%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html, body {
+    @apply bg-background text-foreground;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    letter-spacing: 0.02em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'VT323', 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Custom scrollbar - industrial style */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--secondary));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.5);
+    border: 1px solid hsl(var(--border));
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+
+  /* Selection styling */
+  ::selection {
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+  }
+}
+
+@layer components {
+  /* CRT Scanline overlay */
+  .scanlines {
+    position: relative;
+  }
+  .scanlines::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 2px,
+      hsl(var(--primary) / 0.03) 2px,
+      hsl(var(--primary) / 0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .scanlines-strong::before {
+    background: repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 2px,
+      hsl(var(--primary) / 0.08) 2px,
+      hsl(var(--primary) / 0.08) 3px
+    );
+  }
+
+  /* CRT glow effect on text */
+  .crt-glow {
+    text-shadow:
+      0 0 2px hsl(var(--primary) / 0.6),
+      0 0 5px hsl(var(--primary) / 0.4),
+      0 0 10px hsl(var(--primary) / 0.2);
+  }
+
+  .crt-glow-strong {
+    text-shadow:
+      0 0 3px hsl(var(--primary) / 0.9),
+      0 0 8px hsl(var(--primary) / 0.6),
+      0 0 16px hsl(var(--primary) / 0.3);
+  }
+
+  /* Industrial border with corner brackets */
+  .industrial-border {
+    position: relative;
+    border: 1px solid hsl(var(--border));
+  }
+  .industrial-border::before,
+  .industrial-border::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-color: hsl(var(--primary));
+    border-style: solid;
+  }
+  .industrial-border::before {
+    top: -1px;
+    left: -1px;
+    border-width: 2px 0 0 2px;
+  }
+  .industrial-border::after {
+    bottom: -1px;
+    right: -1px;
+    border-width: 0 2px 2px 0;
+  }
+
+  /* Terminal-style button */
+  .terminal-btn {
+    @apply relative border border-primary/50 bg-secondary px-4 py-2 font-mono uppercase tracking-wider transition-all;
+  }
+  .terminal-btn:hover {
+    @apply bg-primary text-primary-foreground border-primary;
+    box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+  }
+
+  /* Terminal prompt prefix */
+  .terminal-prompt::before {
+    content: '> ';
+    color: hsl(var(--accent));
+  }
+
+  /* Blinking cursor */
+  .cursor-blink::after {
+    content: '_';
+    animation: blink 1s step-end infinite;
+    color: hsl(var(--primary));
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* Flicker animation */
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.95; }
+    52% { opacity: 0.85; }
+    54% { opacity: 1; }
+  }
+  .crt-flicker {
+    animation: flicker 4s infinite;
+  }
+
+  /* Grid background */
+  .grid-bg {
+    background-image:
+      linear-gradient(hsl(var(--primary) / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Noise overlay */
+  .noise-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+
+  /* Product card hover effect */
+  .card-industrial {
+    @apply bg-card border border-border transition-all duration-200;
+    position: relative;
+  }
+  .card-industrial:hover {
+    @apply border-primary;
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4), 0 0 20px hsl(var(--primary) / 0.15);
+    transform: translateY(-2px);
+  }
+
+  /* Tag / chip */
+  .tag {
+    @apply inline-flex items-center gap-1 border border-primary/40 bg-primary/10 px-2 py-0.5 text-xs uppercase tracking-wider;
+  }
+
+  /* Data display */
+  .data-row {
+    @apply flex justify-between border-b border-border/50 py-1 font-mono text-sm;
+  }
+  .data-row .label {
+    @apply text-muted-foreground;
+  }
+  .data-row .value {
+    @apply text-foreground;
+  }
+}
+
+/* Fonts for special use */
+.font-display {
+  font-family: 'VT323', monospace;
+}
+.font-pixel {
+  font-family: 'Press Start 2P', monospace;
+}
+.font-mono-tight {
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.02em;
+}

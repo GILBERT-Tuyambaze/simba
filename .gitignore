@@ -1,0 +1,16 @@
+backend/.env
+frontend/.env
+*.db
+local.db
+backend/local.db
+backend/logs/
+logs/
+.history/
+backend/__pycache__/
+backend/**/*.pyc
+backend/**/__pycache__/
+backend/node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+backend/*firebase-adminsdk*.json
