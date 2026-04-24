@@ -11,8 +11,10 @@ import {
   exchangeFirebaseToken,
   getCurrentUser,
   getStoredSessionToken,
+  getAuthErrorMessage,
   storeSessionToken,
   shouldRetryFirebaseTokenExchange,
+  shouldResetFirebaseSession,
   type AuthUser,
   type TokenExchangeResponse,
 } from '@/lib/auth';
@@ -146,10 +148,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUser(session.user);
         setSessionError(null);
       } catch (error) {
+        if (shouldResetFirebaseSession(error) && firebaseAuth?.currentUser) {
+          await signOut(firebaseAuth).catch(() => {});
+        }
+
         console.warn('Firebase session sync unavailable; continuing without backend session.', error);
         clearSessionToken();
         setUser(null);
-        setSessionError(error instanceof Error ? error.message : 'Failed to sync backend session.');
+        setSessionError(
+          getAuthErrorMessage(error, 'Failed to sync backend session.')
+        );
       } finally {
         if (!cancelled) {
           setLoading(false);

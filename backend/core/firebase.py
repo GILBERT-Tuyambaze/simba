@@ -27,6 +27,18 @@ def _normalize_private_key(private_key: str) -> str:
     return private_key.replace("\\n", "\n").strip()
 
 
+def _get_backend_dir() -> Path:
+    return Path(__file__).resolve().parent.parent
+
+
+def _resolve_service_account_path(path_value: str) -> str:
+    path = Path(path_value).expanduser()
+    if path.is_absolute():
+        return str(path)
+
+    return str((_get_backend_dir() / path).resolve())
+
+
 def _decode_unverified_token_payload(id_token: str) -> Dict[str, Any]:
     """Decode the JWT payload without verifying the signature for diagnostics only."""
     try:
@@ -43,7 +55,7 @@ def _decode_unverified_token_payload(id_token: str) -> Dict[str, Any]:
 
 
 def _discover_local_service_account_file() -> Optional[str]:
-    backend_dir = Path(__file__).resolve().parent.parent
+    backend_dir = _get_backend_dir()
     candidates = sorted(
         list(backend_dir.glob("*firebase-adminsdk*.json"))
         + list(backend_dir.glob("*service-account*.json"))
@@ -65,7 +77,13 @@ def _build_credential_source() -> Optional[Union[str, Dict[str, Any]]]:
     firebase_private_key = getattr(settings, "firebase_private_key", "").strip()
 
     if service_account_path:
-        return service_account_path
+        resolved_path = _resolve_service_account_path(service_account_path)
+        if Path(resolved_path).is_file():
+            return resolved_path
+        logger.warning(
+            "Configured FIREBASE_SERVICE_ACCOUNT_PATH was not found: %s. Falling back to auto-discovery.",
+            resolved_path,
+        )
 
     discovered_path = _discover_local_service_account_file()
     if discovered_path:
@@ -114,7 +132,7 @@ def _get_expected_firebase_project_id() -> str:
     return ""
 
 
-def _build_invalid_token_error(id_token: str) -> FirebaseAuthError:
+def _build_invalid_token_error(id_token: str, reason: str = "") -> FirebaseAuthError:
     payload = _decode_unverified_token_payload(id_token)
     token_project_id = str(payload.get("aud") or "").strip()
     issuer = str(payload.get("iss") or "").strip()
@@ -152,6 +170,9 @@ def _build_invalid_token_error(id_token: str) -> FirebaseAuthError:
             "Invalid Firebase token. Sign out and sign in again. "
             "If the error persists, check that the frontend and backend Firebase configuration both use the same project."
         )
+
+    if settings.debug and reason:
+        message = f"{message} [Firebase Admin reason: {reason}]"
 
     return FirebaseAuthError(message, "invalid_token")
 
@@ -212,7 +233,7 @@ def verify_firebase_id_token(id_token: str) -> Dict[str, Any]:
         raise FirebaseAuthError("Firebase token has been revoked", "token_revoked") from exc
     except firebase_auth.InvalidIdTokenError as exc:
         logger.warning("Firebase Admin rejected ID token: %s", exc)
-        raise _build_invalid_token_error(id_token) from exc
+        raise _build_invalid_token_error(id_token, str(exc)) from exc
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.exception("Unexpected error while verifying Firebase token")
         raise FirebaseAuthError("Unable to verify Firebase token", "verification_failed") from exc

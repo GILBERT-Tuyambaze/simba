@@ -112,6 +112,18 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Authentication f
   const message = getErrorMessage(error, fallback);
   const lowered = message.toLowerCase();
 
+  // Preserve backend auth diagnostics instead of collapsing them into
+  // a generic credential error.
+  if (
+    lowered.includes('invalid firebase token') ||
+    lowered.includes('firebase token project mismatch') ||
+    lowered.includes('firebase token issuer mismatch') ||
+    lowered.includes('backend firebase admin key is missing') ||
+    lowered.includes('firebase service account file was not found')
+  ) {
+    return message;
+  }
+
   if (
     lowered.includes('auth/') ||
     lowered.includes('firebase') ||
@@ -124,10 +136,19 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Authentication f
   return message;
 }
 
+export function shouldResetFirebaseSession(error: unknown): boolean {
+  const message = getErrorMessage(error, '').toLowerCase();
+  return (
+    message.includes('firebase token project mismatch') ||
+    message.includes('firebase token issuer mismatch') ||
+    message.includes('invalid firebase token for project')
+  );
+}
+
 export function shouldRetryFirebaseTokenExchange(error: unknown): boolean {
   const message = getErrorMessage(error, '').toLowerCase();
   return (
-    message.includes('invalid firebase token') ||
+    (message.includes('invalid firebase token') && !shouldResetFirebaseSession(error)) ||
     message.includes('token has expired') ||
     message.includes('token has been revoked')
   );
