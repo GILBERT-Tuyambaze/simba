@@ -180,6 +180,8 @@ const sw = {
   'auth.resetSent': 'Barua ya kurudisha neno la siri ilitumwa kama anwani hiyo ipo.',
   'auth.goToShop': 'Endelea na duka',
   'auth.loading': 'Synchronizing auth session...',
+  'auth.matchingCredentials': 'Tunakagua taarifa za kuingia...',
+  'auth.generatingSession': 'Tunatengeneza session salama...',
   'auth.emailPlaceholder': 'wewe@mfano.com',
   'auth.passwordShow': 'Onyesha neno la siri',
   'auth.passwordHide': 'Ficha neno la siri',
@@ -347,10 +349,6 @@ const sw = {
   'cart.freeDeliveryHint': '> Ongeza {{amount}} zaidi kwa ongezaji WA BURE',
   'cart.proceed': 'ENDELEA KWENYE KUPILI',
   'cart.securePayment': '> malipo_salama.uwezo // ssl_chumbwa',
-  'support.hero.eyebrow': 'KITUO CHA MSAADA',
-  'support.hero.title': 'SERA',
-  'common.loading': 'Inapakia...',
-  'common.back': 'Rudi',
   'product.addToCart': 'Ongeza kwenye rukwama',
   'product.buyNow': 'Nunua sasa',
   'cart.emptyTitle': 'RUKWAMA LIKO TUPU',
@@ -364,4 +362,3 @@ const sw = {
 };
 
 export default sw;
-

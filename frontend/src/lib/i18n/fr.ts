@@ -265,6 +265,8 @@ const fr = {
     'auth.resetSent': 'Email de reinitialisation envoye si cette adresse existe.',
     'auth.goToShop': 'Continuer vers la boutique',
     'auth.loading': 'Synchronisation de la session...',
+    'auth.matchingCredentials': 'Verification des identifiants...',
+    'auth.generatingSession': 'Generation de la session securisee...',
     'auth.emailPlaceholder': 'vous@exemple.com',
     'auth.passwordShow': 'Afficher le mot de passe',
     'auth.passwordHide': 'Masquer le mot de passe',
@@ -473,4 +475,3 @@ const fr = {
 };
 
 export default fr;
-

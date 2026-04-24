@@ -76,6 +76,12 @@ export async function exchangeFirebaseToken(idToken: string): Promise<TokenExcha
 
   if (!response.ok) {
     const detail = await readErrorDetail(response);
+    if (response.status === 503) {
+      throw new Error(
+        detail ||
+          'The live authentication service is temporarily unavailable. The backend Firebase Admin configuration may be missing or the server may still be waking up.'
+      );
+    }
     if (detail?.includes('Firebase service account file was not found')) {
       throw new Error(
         'Sign-in is blocked because the backend Firebase admin key is missing. Add the Firebase service-account JSON in the backend configuration or backend folder, then try again.'
@@ -122,7 +128,10 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Authentication f
     lowered.includes('backend clock') ||
     lowered.includes('computer clock') ||
     lowered.includes('backend firebase admin key is missing') ||
-    lowered.includes('firebase service account file was not found')
+    lowered.includes('firebase service account file was not found') ||
+    lowered.includes('firebase authentication is not configured') ||
+    lowered.includes('unable to initialize firebase authentication') ||
+    lowered.includes('temporarily unavailable')
   ) {
     return message;
   }
