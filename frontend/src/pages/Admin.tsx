@@ -54,6 +54,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ProductCreatePanel from '@/components/admin/ProductCreatePanel';
 import RoleInvitePanel from '@/components/admin/RoleInvitePanel';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchVisitSummary, type VisitSummary } from '@/lib/analytics';
 import {
   fetchAdminInvitations,
   fetchAdminOrders,
@@ -472,10 +473,12 @@ export default function Admin() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [visitSummary, setVisitSummary] = useState<VisitSummary | null>(null);
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [profilesError, setProfilesError] = useState<string | null>(null);
   const [invitationsError, setInvitationsError] = useState<string | null>(null);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [range, setRange] = useState<RangeKey>('30d');
   const [refreshTick, setRefreshTick] = useState(0);
@@ -530,11 +533,13 @@ export default function Admin() {
       setOrdersError(null);
       setProfilesError(null);
       setInvitationsError(null);
+      setAnalyticsError(null);
 
-      const [ordersResult, profilesResult, invitationsResult] = await Promise.allSettled([
+      const [ordersResult, profilesResult, invitationsResult, analyticsResult] = await Promise.allSettled([
         fetchAdminOrders(1000),
         fetchAdminProfiles(1000),
         fetchAdminInvitations(),
+        fetchVisitSummary(),
       ]);
 
       if (cancelled) {
@@ -602,6 +607,17 @@ export default function Admin() {
           invitationsResult.reason instanceof Error
             ? invitationsResult.reason.message
             : t('account.loadProfileError')
+        );
+      }
+
+      if (analyticsResult.status === 'fulfilled') {
+        setVisitSummary(analyticsResult.value);
+      } else {
+        setVisitSummary(null);
+        setAnalyticsError(
+          analyticsResult.reason instanceof Error
+            ? analyticsResult.reason.message
+            : 'Failed to load website analytics.'
         );
       }
 
@@ -795,6 +811,58 @@ export default function Admin() {
     () => profiles.filter((profile) => normalizeText(profile.role) === 'delivery_agent'),
     [profiles]
   );
+
+  const customerProfiles = useMemo(
+    () => visibleProfiles.filter((profile) => normalizeText(profile.role) === 'customer'),
+    [visibleProfiles]
+  );
+
+  const branchManagersWithBranch = useMemo(
+    () =>
+      visibleProfiles.filter(
+        (profile) =>
+          normalizeText(profile.role) === 'branch_manager' &&
+          Boolean((profile.default_branch || '').trim())
+      ),
+    [visibleProfiles]
+  );
+
+  const branchStaffWithBranch = useMemo(
+    () =>
+      visibleProfiles.filter(
+        (profile) =>
+          normalizeText(profile.role) === 'branch_staff' &&
+          Boolean((profile.default_branch || '').trim())
+      ),
+    [visibleProfiles]
+  );
+
+  const visitRangeCount = useMemo(() => {
+    if (!visitSummary) {
+      return 0;
+    }
+
+    switch (range) {
+      case '7d':
+        return visitSummary.visits_last_7_days;
+      case '30d':
+        return visitSummary.visits_last_30_days;
+      case '90d':
+        return visitSummary.visits_last_90_days;
+      case 'all':
+      default:
+        return visitSummary.total_visits;
+    }
+  }, [range, visitSummary]);
+
+  const visitRangeLabel =
+    range === '7d'
+      ? 'Unique visits in the last 7 days'
+      : range === '30d'
+        ? 'Unique visits in the last 30 days'
+        : range === '90d'
+          ? 'Unique visits in the last 90 days'
+          : 'Unique visits recorded all time';
 
   const itemSales = useMemo(() => {
     return visibleOrders.flatMap((order) => {
@@ -1464,7 +1532,7 @@ export default function Admin() {
                 </div>
               </section>
 
-              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                 <MetricCard
                   icon={CreditCard}
                   label="Gross revenue"
@@ -1478,10 +1546,40 @@ export default function Admin() {
                   subtext={`${waitingOrders.length} waiting, ${processingOrders.length} processing`}
                 />
                 <MetricCard
+                  icon={Eye}
+                  label="Website visitors"
+                  value={visitRangeCount.toLocaleString('en-US')}
+                  subtext={
+                    analyticsError
+                      ? analyticsError
+                      : `${visitRangeLabel}. Today: ${(visitSummary?.visits_today || 0).toLocaleString('en-US')}`
+                  }
+                />
+                <MetricCard
+                  icon={Store}
+                  label="Branch managers"
+                  value={branchManagersWithBranch.length.toLocaleString('en-US')}
+                  subtext={
+                    branchFilter === 'all'
+                      ? 'Managers with a selected branch'
+                      : `Managers assigned to ${branchFilter}`
+                  }
+                />
+                <MetricCard
                   icon={Users}
-                  label="Customers"
-                  value={visibleProfiles.length.toLocaleString('en-US')}
-                  subtext="Saved profiles and repeat buyers"
+                  label="Branch staff"
+                  value={branchStaffWithBranch.length.toLocaleString('en-US')}
+                  subtext={
+                    branchFilter === 'all'
+                      ? 'Staff with a selected branch'
+                      : `Staff assigned to ${branchFilter}`
+                  }
+                />
+                <MetricCard
+                  icon={Users}
+                  label="Customer profiles"
+                  value={customerProfiles.length.toLocaleString('en-US')}
+                  subtext="Saved shopper accounts in the current branch scope"
                 />
                 <MetricCard
                   icon={BadgePercent}

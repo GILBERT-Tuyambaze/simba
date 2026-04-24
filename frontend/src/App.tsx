@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import BlogRoutes from './blog-routes';
 import StoreAssistant from './components/assistant/StoreAssistant';
 import ScrollToTop from './components/ScrollToTop';
+import VisitTracker from './components/VisitTracker';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
@@ -72,6 +73,7 @@ const App = () => (
                 }}
               >
                 <ScrollToTop />
+                <VisitTracker />
                 <AppRoutes />
                 <StoreAssistant />
               </BrowserRouter>
