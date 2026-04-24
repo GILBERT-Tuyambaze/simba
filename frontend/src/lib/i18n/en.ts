@@ -266,6 +266,8 @@ const en = {
     'auth.resetSent': 'Password reset email sent if that address exists.',
     'auth.goToShop': 'Continue to shop',
     'auth.loading': 'Syncing auth session...',
+    'auth.matchingCredentials': 'Matching credentials...',
+    'auth.generatingSession': 'Generating secure session...',
     'auth.emailPlaceholder': 'you@example.com',
     'auth.passwordShow': 'Show password',
     'auth.passwordHide': 'Hide password',
@@ -535,4 +537,3 @@ const en = {
 };
 
 export default en;
-

@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
+  LoaderCircle,
   Lock,
   Mail,
   Sparkles,
@@ -158,7 +159,7 @@ function getReturnPath(
 }
 
 export default function LoginPage() {
-  const { user, loading, sessionError } = useAuth();
+  const { user, loading, sessionSyncing, sessionError } = useAuth();
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
@@ -183,7 +184,18 @@ export default function LoginPage() {
   const [invitePreview, setInvitePreview] = useState<Invitation | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [postAuthBusy, setPostAuthBusy] = useState(false);
+  const [loginPhase, setLoginPhase] = useState<'idle' | 'credentials' | 'session'>('idle');
   const visibleError = error || sessionError;
+  const busy = submitting || sessionSyncing || postAuthBusy;
+
+  useEffect(() => {
+    if (!sessionSyncing) {
+      setLoginPhase((current) => (current === 'session' ? 'idle' : current));
+      return;
+    }
+
+    setLoginPhase('session');
+  }, [sessionSyncing]);
 
   useEffect(() => {
     if (!inviteToken) {
@@ -248,10 +260,12 @@ export default function LoginPage() {
 
     setError(null);
     setSubmitting(true);
+    setLoginPhase('credentials');
     try {
       await signInWithPopup(firebaseAuth, googleProvider);
     } catch (err) {
       setError(getLocalizedAuthError(t, err));
+      setLoginPhase('idle');
     } finally {
       setSubmitting(false);
     }
@@ -268,6 +282,7 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     setResetSent(false);
+    setLoginPhase('credentials');
 
     try {
       if (mode === 'signup') {
@@ -281,6 +296,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError(getLocalizedAuthError(t, err));
+      setLoginPhase('idle');
     } finally {
       setSubmitting(false);
     }
@@ -300,11 +316,13 @@ export default function LoginPage() {
 
     setError(null);
     setSubmitting(true);
+    setLoginPhase('credentials');
     try {
       await sendPasswordResetEmail(firebaseAuth, trimmedEmail);
       setResetSent(true);
     } catch (err) {
       setError(getLocalizedAuthError(t, err));
+      setLoginPhase('idle');
     } finally {
       setSubmitting(false);
     }
@@ -454,9 +472,16 @@ export default function LoginPage() {
                   onClick={handleGoogleSignIn}
                   className="w-full"
                   variant="outline"
-                  disabled={submitting || firebaseMissing}
+                  disabled={busy || firebaseMissing}
                 >
-                  {postAuthBusy ? t('auth.redirecting') : t('auth.google')}
+                  {busy ? (
+                    <span className="inline-flex items-center gap-2">
+                      <LoaderCircle className="h-4 w-4 animate-spin" />
+                      {loginPhase === 'session' ? t('auth.generatingSession') : t('auth.matchingCredentials')}
+                    </span>
+                  ) : (
+                    t('auth.google')
+                  )}
                 </Button>
 
                 <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
@@ -502,8 +527,15 @@ export default function LoginPage() {
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <Button type="submit" className="w-full" disabled={submitting || firebaseMissing || postAuthBusy}>
-                      {mode === 'signup' ? t('auth.createAccount') : t('auth.signIn')}
+                    <Button type="submit" className="w-full" disabled={busy || firebaseMissing}>
+                      {busy ? (
+                        <span className="inline-flex items-center gap-2">
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          {loginPhase === 'session' ? t('auth.generatingSession') : t('auth.matchingCredentials')}
+                        </span>
+                      ) : (
+                        mode === 'signup' ? t('auth.createAccount') : t('auth.signIn')
+                      )}
                     </Button>
                     <Button
                       type="button"
@@ -514,7 +546,7 @@ export default function LoginPage() {
                           current === 'signin' ? 'signup' : 'signin'
                         )
                       }
-                      disabled={submitting || firebaseMissing || postAuthBusy}
+                      disabled={busy || firebaseMissing}
                     >
                       {mode === 'signup' ? t('auth.useSignIn') : t('auth.createAccount')}
                     </Button>
@@ -524,7 +556,7 @@ export default function LoginPage() {
                     <button
                       type="button"
                       onClick={handlePasswordReset}
-                      disabled={submitting || firebaseMissing || !email.trim() || postAuthBusy}
+                      disabled={busy || firebaseMissing || !email.trim()}
                       className="text-left text-primary transition-colors hover:text-primary/80 disabled:cursor-not-allowed disabled:text-muted-foreground"
                     >
                       {t('auth.resetPassword')}
