@@ -273,7 +273,7 @@ const Shop: React.FC = () => {
               </div>
             ) : (
               <div className={view === 'grid'
-                ? 'grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4'
+                ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4'
                 : 'space-y-3'
               }>
                 {filtered.map((p) => (
@@ -288,7 +288,7 @@ const Shop: React.FC = () => {
       {/* Mobile filter sheet */}
       {mobileFilterOpen && (
         <div className="lg:hidden fixed inset-0 z-50 bg-background/80">
-          <div className="absolute right-0 top-0 bottom-0 w-80 max-w-full bg-card border-l border-border overflow-y-auto p-4">
+          <div className="absolute bottom-0 right-0 top-0 w-[min(100vw,22rem)] max-w-full overflow-y-auto border-l border-border bg-card p-4">
             <div className="flex items-center justify-between mb-4">
               <div className="text-sm font-display text-primary">{t('shop.filters')}</div>
               <button onClick={() => setMobileFilterOpen(false)}><X className="h-4 w-4" /></button>

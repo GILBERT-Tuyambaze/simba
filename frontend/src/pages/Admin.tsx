@@ -513,6 +513,14 @@ export default function Admin() {
   const roleMeta = getStoreRoleMeta(user?.role);
   const canCreateProducts = canManageProducts(user?.role);
   const deliveryNavOnly = normalizeStoreRole(user?.role) === 'delivery_agent';
+  const navItems = deliveryNavOnly
+    ? [{ id: 'deliveries', label: 'My deliveries', icon: Truck }]
+    : [
+        { id: 'overview', label: 'Overview', icon: BarChart3 },
+        { id: 'orders', label: 'Orders', icon: ShoppingBag },
+        { id: 'inventory', label: 'Inventory', icon: Package },
+        { id: 'roles', label: 'Access', icon: Shield },
+      ];
 
   useEffect(() => {
     let cancelled = false;
@@ -1066,14 +1074,14 @@ export default function Admin() {
   const formatPercentage = (value: number) => `${value.toLocaleString('en-US')}%`;
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen overflow-x-clip bg-background text-foreground">
       <Header />
 
-      <main className="relative overflow-hidden">
+      <main className="relative overflow-x-clip overflow-y-visible">
         <div className="absolute inset-0 grid-bg opacity-20" />
         <div className="absolute inset-0 scanlines-strong pointer-events-none" />
 
-        <div className="relative mx-auto max-w-7xl px-4 py-8 md:py-10">
+        <div className="relative mx-auto max-w-7xl overflow-x-clip px-4 py-8 md:py-10">
           {(ordersError || profilesError || invitationsError) && (
             <div className="mb-6 grid gap-3">
               {ordersError && (
@@ -1096,8 +1104,8 @@ export default function Admin() {
 
           <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
             <aside className="hidden lg:block">
-              <div className="sticky top-32 space-y-4">
-                <div className="industrial-border bg-card/90 p-4">
+              <div className="space-y-4 lg:sticky lg:top-32">
+                <div className="industrial-border min-w-0 bg-card/90 p-4">
                   <div className="flex items-center gap-3 border-b border-border pb-3">
                     <Store className="h-8 w-8 text-primary" />
                     <div>
@@ -1111,16 +1119,7 @@ export default function Admin() {
                   </div>
 
                   <div className="mt-4 space-y-2">
-                    {(
-                      deliveryNavOnly
-                        ? [{ id: 'deliveries', label: 'My deliveries', icon: Truck }]
-                        : [
-                            { id: 'overview', label: 'Overview', icon: BarChart3 },
-                            { id: 'orders', label: 'Orders', icon: ShoppingBag },
-                            { id: 'inventory', label: 'Inventory', icon: Package },
-                            { id: 'roles', label: 'Access', icon: Shield },
-                          ]
-                    ).map((item) => {
+                    {navItems.map((item) => {
                       const Icon = item.icon;
                       return (
                         <Link
@@ -1145,12 +1144,12 @@ export default function Admin() {
                   <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                     Current access
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <div>
+                  <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <div className="text-lg font-display text-primary crt-glow">
                         {roleMeta.label}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="break-words text-xs text-muted-foreground">
                         {roleMeta.description}
                       </div>
                     </div>
@@ -1161,7 +1160,7 @@ export default function Admin() {
                       {roleMeta.key.replace('_', ' ')}
                     </Badge>
                   </div>
-                  <div className="mt-3 text-xs text-muted-foreground">
+                  <div className="mt-3 break-words text-xs text-muted-foreground">
                     {roleMeta.scope}
                   </div>
                 </div>
@@ -1169,6 +1168,67 @@ export default function Admin() {
             </aside>
 
             <div className="space-y-6">
+              <section className="space-y-3 lg:hidden">
+                <div className="industrial-border min-w-0 bg-card/90 p-4">
+                  <div className="flex items-center gap-3 border-b border-border pb-3">
+                    <Store className="h-8 w-8 text-primary" />
+                    <div>
+                      <div className="font-display text-2xl text-primary crt-glow">
+                        SIMBA
+                      </div>
+                      <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                        Supermarket control desk
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:overflow-visible">
+                    {navItems.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={`mobile-${item.id}`}
+                          to={`/admin/${item.id}`}
+                          className={`flex min-w-0 items-center justify-center gap-2 border px-3 py-2 text-center text-xs uppercase tracking-[0.2em] transition-colors sm:justify-start ${
+                            activePanel === item.id
+                              ? 'border-primary bg-primary/10 text-primary'
+                              : 'border-border bg-secondary/20 hover:border-primary hover:text-primary'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="industrial-border min-w-0 bg-card/90 p-4">
+                  <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                    Current access
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-lg font-display text-primary crt-glow">
+                        {roleMeta.label}
+                      </div>
+                      <div className="break-words text-xs text-muted-foreground">
+                        {roleMeta.description}
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`uppercase tracking-[0.2em] ${roleMeta.badgeClass}`}
+                    >
+                      {roleMeta.key.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div className="mt-3 break-words text-xs text-muted-foreground">
+                    {roleMeta.scope}
+                  </div>
+                </div>
+              </section>
+
               {activePanel === 'deliveries' && isDeliveryAgent && (
                 <section id="deliveries" className="space-y-6">
                   <div className="industrial-border bg-card/90 p-5 md:p-6">
@@ -1310,11 +1370,11 @@ export default function Admin() {
                 className="industrial-border bg-card/90 p-5 md:p-6 scanlines"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <div className="text-xs uppercase tracking-[0.25em] text-muted-foreground">
                       /admin/dashboard
                     </div>
-                    <h1 className="mt-2 text-4xl font-display text-primary crt-glow terminal-prompt">
+                    <h1 className="mt-2 text-3xl font-display text-primary crt-glow terminal-prompt sm:text-4xl">
                       SIMBA STORE DASHBOARD
                     </h1>
                     <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
@@ -1353,7 +1413,7 @@ export default function Admin() {
                     </div>
                   </div>
 
-                  <div className="grid min-w-[280px] gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                     <div className="border border-border bg-secondary/20 p-3">
                       <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                         Branch filter
@@ -1390,14 +1450,14 @@ export default function Admin() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="gap-2"
+                      className="w-full gap-2 sm:w-auto"
                       onClick={() => setRefreshTick((value) => value + 1)}
                       disabled={loadingDashboard}
                     >
                       <RefreshCw className="h-4 w-4" />
                       {loadingDashboard ? 'SYNCING...' : 'REFRESH DATA'}
                     </Button>
-                    <Link to="/shop" className="terminal-btn text-xs text-center">
+                    <Link to="/shop" className="terminal-btn w-full text-xs text-center sm:w-auto">
                       OPEN STOREFRONT
                     </Link>
                   </div>
@@ -1726,7 +1786,7 @@ export default function Admin() {
 
                 <div className="mb-6 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                   <div className="border border-border bg-secondary/20 p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                           Incoming inbox
@@ -1796,7 +1856,7 @@ export default function Admin() {
                   </div>
 
                   <div className="border border-border bg-secondary/20 p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                           Quick actions
@@ -1843,6 +1903,7 @@ export default function Admin() {
                           <Button
                             type="button"
                             variant="outline"
+                            className="w-full"
                             onClick={() => setSelectedOrder(selectedOrder)}
                           >
                             Open details
@@ -1850,6 +1911,7 @@ export default function Admin() {
                           <Button
                             type="button"
                             variant="outline"
+                            className="w-full"
                             onClick={() => void handleAdvanceOrder(selectedOrder, 'processing')}
                             disabled={busyOrderId === selectedOrder.id || !isBranchOperator}
                           >
@@ -1857,6 +1919,7 @@ export default function Admin() {
                           </Button>
                           <Button
                             type="button"
+                            className="w-full"
                             onClick={() => void handleAdvanceOrder(selectedOrder, 'shipped')}
                             disabled={
                               busyOrderId === selectedOrder.id ||
@@ -1871,6 +1934,7 @@ export default function Admin() {
                           <Button
                             type="button"
                             variant="outline"
+                            className="w-full"
                             onClick={() => void handleAdvanceOrder(selectedOrder, 'delivered')}
                             disabled={
                               busyOrderId === selectedOrder.id ||
@@ -1902,8 +1966,66 @@ export default function Admin() {
                     Loading order feed...
                   </div>
                 ) : recentOrders.length > 0 ? (
-                  <div className="overflow-hidden border border-border">
-                    <Table>
+                  <>
+                  <div className="space-y-3 md:hidden">
+                    {recentOrders.map((order) => {
+                      const customer = customerLookup.get(order.user_id);
+
+                      return (
+                        <button
+                          key={`mobile-order-${order.id}`}
+                          type="button"
+                          onClick={() => setSelectedOrder(order)}
+                          className={`w-full border p-4 text-left transition-colors ${
+                            selectedOrder?.id === order.id
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border bg-card/70 hover:border-primary/60'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="font-mono text-sm text-primary">#{order.id}</div>
+                              <div className="mt-1 truncate text-sm text-foreground">
+                                {customer?.display_name || customer?.email || 'Customer'}
+                              </div>
+                              <div className="mt-1 text-[10px] text-muted-foreground">
+                                {customer?.phone || order.phone || '-'}
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`shrink-0 uppercase tracking-[0.2em] ${getStatusTone(order.status)}`}
+                            >
+                              {getStatusLabel(order.status)}
+                            </Badge>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                            <div className="flex items-center justify-between gap-3">
+                              <span>{order.branch || '-'}</span>
+                              <span>{formatShortDate(order.created_at)}</span>
+                            </div>
+                            <div className="flex items-center justify-between gap-3">
+                              <Badge
+                                variant="outline"
+                                className={`uppercase tracking-[0.2em] ${getPaymentTone(order.payment_method)}`}
+                              >
+                                {getPaymentLabel(order.payment_method)}
+                              </Badge>
+                              <span className="font-semibold text-primary crt-glow">
+                                {formatRWF(order.total)}
+                              </span>
+                            </div>
+                            <div className="break-words text-[10px] uppercase tracking-[0.2em]">
+                              {order.delivery_method || '-'} {order.tracking_number ? `• ${order.tracking_number}` : ''}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden overflow-x-auto border border-border md:block">
+                    <Table className="min-w-[880px]">
                       <TableHeader>
                         <TableRow className="bg-secondary/20 hover:bg-secondary/20">
                           <TableHead className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
@@ -1945,7 +2067,7 @@ export default function Admin() {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="min-w-[160px]">
+                                <div className="min-w-0">
                                   <div className="text-sm text-foreground">
                                     {customer?.display_name || customer?.email || 'Customer'}
                                   </div>
@@ -2000,6 +2122,7 @@ export default function Admin() {
                       </TableBody>
                     </Table>
                   </div>
+                  </>
                 ) : (
                   <div className="border border-dashed border-border px-4 py-16 text-center text-sm text-muted-foreground">
                     No orders found for the selected branch and time window.
@@ -2121,17 +2244,17 @@ export default function Admin() {
                 )}
 
                 <Tabs defaultValue="promos" className="space-y-4">
-                  <TabsList className="w-full justify-start gap-2 border border-border bg-secondary/20 p-1">
-                    <TabsTrigger value="promos" className="text-xs uppercase tracking-[0.2em]">
+                  <TabsList className="grid h-auto w-full grid-cols-2 gap-2 border border-border bg-secondary/20 p-1 sm:flex sm:flex-wrap sm:justify-start">
+                    <TabsTrigger value="promos" className="w-full text-xs uppercase tracking-[0.2em] sm:w-auto">
                       Hot promos
                     </TabsTrigger>
-                    <TabsTrigger value="best" className="text-xs uppercase tracking-[0.2em]">
+                    <TabsTrigger value="best" className="w-full text-xs uppercase tracking-[0.2em] sm:w-auto">
                       Best rated
                     </TabsTrigger>
-                    <TabsTrigger value="watch" className="text-xs uppercase tracking-[0.2em]">
+                    <TabsTrigger value="watch" className="w-full text-xs uppercase tracking-[0.2em] sm:w-auto">
                       Watchlist
                     </TabsTrigger>
-                    <TabsTrigger value="sales" className="text-xs uppercase tracking-[0.2em]">
+                    <TabsTrigger value="sales" className="w-full text-xs uppercase tracking-[0.2em] sm:w-auto">
                       Top sales
                     </TabsTrigger>
                   </TabsList>
@@ -2256,8 +2379,8 @@ export default function Admin() {
                         key={role.key}
                         className={`relative overflow-hidden border border-border bg-gradient-to-br ${role.panelClass} p-4`}
                       >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
                             <Badge
                               variant="outline"
                               className={`uppercase tracking-[0.2em] ${role.badgeClass}`}
@@ -2272,7 +2395,7 @@ export default function Admin() {
                             <Badge className="tag uppercase">current</Badge>
                           )}
                         </div>
-                        <div className="mt-3 text-xs text-muted-foreground">
+                        <div className="mt-3 break-words text-xs text-muted-foreground">
                           {role.scope}
                         </div>
                       </div>
@@ -2288,8 +2411,37 @@ export default function Admin() {
                     icon={Users}
                   />
 
-                  <div className="overflow-x-auto">
-                    <Table>
+                  <div className="space-y-3 md:hidden">
+                    {PERMISSION_ROWS.map((row) => (
+                      <div key={`mobile-${row.label}`} className="border border-border bg-secondary/20 p-4">
+                        <div className="text-sm text-foreground">{row.label}</div>
+                        <div className="mt-3 grid gap-2">
+                          {STORE_ROLE_CARDS.map((role) => {
+                            const value = row[role.key];
+                            return (
+                              <div
+                                key={`mobile-${row.label}-${role.key}`}
+                                className="flex items-center justify-between gap-3"
+                              >
+                                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                                  {role.label}
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className={`uppercase tracking-[0.2em] ${getPermissionTone(value)}`}
+                                >
+                                  {getPermissionLabel(value)}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="min-w-[860px]">
                       <TableHeader>
                         <TableRow className="bg-secondary/20 hover:bg-secondary/20">
                           <TableHead className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
@@ -2374,11 +2526,11 @@ export default function Admin() {
           onClick={() => setSelectedOrder(null)}
         >
           <div
-            className="industrial-border max-h-[90vh] w-full max-w-3xl overflow-y-auto bg-card p-6"
+            className="industrial-border max-h-[90vh] w-full max-w-3xl overflow-x-hidden overflow-y-auto bg-card p-4 sm:p-6"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
-              <div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+              <div className="min-w-0 flex-1">
                 <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
                   Order detail
                 </div>

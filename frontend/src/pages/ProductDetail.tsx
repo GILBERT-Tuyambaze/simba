@@ -8,6 +8,7 @@ import { useProduct, useProducts } from '@/hooks/useProducts';
 import { useCart } from '@/contexts/CartContext';
 import { formatRWF } from '@/lib/types';
 import { getProductStockForBranch } from '@/lib/product-stock';
+import { useI18n } from '@/lib/i18n';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams();
@@ -15,6 +16,7 @@ const ProductDetail: React.FC = () => {
   const { product, loading } = useProduct(id);
   const { products } = useProducts();
   const { addItem, branch } = useCart();
+  const { t, translateCategory } = useI18n();
   const [qty, setQty] = useState(1);
   const discountedPrice = product ? (product.discount > 0 ? product.price * (1 - product.discount / 100) : product.price) : 0;
   const related = product ? products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4) : [];
@@ -33,7 +35,7 @@ const ProductDetail: React.FC = () => {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <div className="text-center py-20 text-muted-foreground">&gt; loading product...</div>
+        <div className="text-center py-20 text-muted-foreground">{t('product.loading')}</div>
       </div>
     );
   }
@@ -43,8 +45,8 @@ const ProductDetail: React.FC = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="text-center py-20">
-          <div className="text-muted-foreground mb-4">&gt; product.not_found()</div>
-          <Link to="/shop" className="terminal-btn text-xs">RETURN TO SHOP</Link>
+          <div className="text-muted-foreground mb-4">{t('product.notFound')}</div>
+          <Link to="/shop" className="terminal-btn text-xs">{t('product.returnToShop')}</Link>
         </div>
       </div>
     );
@@ -76,19 +78,19 @@ const ProductDetail: React.FC = () => {
       <div className="mx-auto max-w-7xl px-4 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-6">
-          <Link to="/" className="hover:text-primary">HOME</Link>
+          <Link to="/" className="hover:text-primary">{t('nav.home')}</Link>
           <span>/</span>
-          <Link to="/shop" className="hover:text-primary">SHOP</Link>
+          <Link to="/shop" className="hover:text-primary">{t('nav.shop')}</Link>
           <span>/</span>
           <Link to={`/shop?category=${encodeURIComponent(product.category)}`} className="hover:text-primary">
-            {product.category}
+            {translateCategory(product.category)}
           </Link>
           <span>/</span>
           <span className="text-primary truncate">{product.name}</span>
         </div>
 
         <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-xs text-muted-foreground mb-4 hover:text-primary">
-          <ChevronLeft className="h-3 w-3" /> BACK
+          <ChevronLeft className="h-3 w-3" /> {t('common.back')}
         </button>
 
         {/* Main */}
@@ -99,17 +101,17 @@ const ProductDetail: React.FC = () => {
             </div>
             <div className="flex gap-2 mt-4">
               {product.discount > 0 && (
-                <span className="tag text-accent border-accent/50 bg-accent/10">-{product.discount}% OFF</span>
+                <span className="tag text-accent border-accent/50 bg-accent/10">-{product.discount}% {t('product.off')}</span>
               )}
               <span className={`tag ${product.in_stock ? 'border-primary/50 bg-primary/10' : 'border-destructive/50 bg-destructive/10 text-destructive'}`}>
-                {product.in_stock ? 'IN STOCK' : 'OUT OF STOCK'}
+                {product.in_stock ? t('assistant.inStock') : t('assistant.outOfStock')}
               </span>
               <span className="tag">{product.brand}</span>
             </div>
           </div>
 
           <div>
-            <div className="text-xs uppercase text-muted-foreground mb-2">{product.category}</div>
+            <div className="text-xs uppercase text-muted-foreground mb-2">{translateCategory(product.category)}</div>
             <h1 className="text-3xl md:text-4xl font-display text-primary crt-glow mb-3">
               {product.name}
             </h1>
@@ -124,7 +126,7 @@ const ProductDetail: React.FC = () => {
                 ))}
                 <span className="ml-1">{product.rating}</span>
               </div>
-              <span>SKU: {product.id}</span>
+              <span>{t('product.sku', { values: { sku: product.id } })}</span>
             </div>
 
             {/* Price */}
@@ -140,7 +142,7 @@ const ProductDetail: React.FC = () => {
                 )}
               </div>
               <div className="text-xs text-muted-foreground uppercase mt-1">
-                per {product.unit} &bull; inclusive of all taxes
+                {t('product.priceMeta', { values: { unit: product.unit } })}
               </div>
             </div>
 
@@ -150,7 +152,7 @@ const ProductDetail: React.FC = () => {
 
             {/* Quantity */}
             <div className="flex items-center gap-4 mb-6">
-              <div className="text-xs uppercase text-muted-foreground">QTY</div>
+              <div className="text-xs uppercase text-muted-foreground">{t('product.qty')}</div>
               <div className="flex items-center border border-border">
                 <button
                   onClick={() => setQty(Math.max(1, Math.min(maxQuantity || 1, qty - 1)))}
@@ -169,10 +171,12 @@ const ProductDetail: React.FC = () => {
                 </button>
               </div>
               <div className="text-xs text-muted-foreground">
-                TOTAL: <span className="text-primary font-bold">{formatRWF(discountedPrice * safeQty)}</span>
+                {t('product.total')}: <span className="text-primary font-bold">{formatRWF(discountedPrice * safeQty)}</span>
               </div>
               <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                {maxQuantity > 0 ? `${maxQuantity} available for your branch` : 'Out of stock for your branch'}
+                {maxQuantity > 0
+                  ? t('product.availableForBranch', { values: { count: maxQuantity } })
+                  : t('product.outForBranch')}
               </div>
             </div>
 
@@ -183,24 +187,24 @@ const ProductDetail: React.FC = () => {
                 disabled={!product.in_stock || maxQuantity <= 0}
                 className="flex-1 terminal-btn flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <ShoppingCart className="h-4 w-4" /> ADD TO CART
+                <ShoppingCart className="h-4 w-4" /> {t('product.addToCart')}
               </button>
               <button
                 onClick={handleBuyNow}
                 disabled={!product.in_stock || maxQuantity <= 0}
                 className="flex-1 border border-accent bg-accent text-accent-foreground px-4 py-2 uppercase tracking-wider text-sm hover:opacity-90 disabled:opacity-50"
               >
-                BUY NOW
+                {t('product.buyNow')}
               </button>
             </div>
 
             {/* Perks */}
             <div className="grid grid-cols-2 gap-2 text-xs">
               {[
-                { icon: Truck, label: 'FREE DELIVERY', sub: 'Over RWF 30K' },
-                { icon: Shield, label: 'SECURE PAY', sub: 'SSL Encrypted' },
-                { icon: Package, label: 'EASY RETURN', sub: '7-day policy' },
-                { icon: Zap, label: 'FAST DISPATCH', sub: 'Same day' },
+                { icon: Truck, label: t('product.perkDelivery'), sub: t('product.perkDeliverySub') },
+                { icon: Shield, label: t('product.perkSecure'), sub: t('product.perkSecureSub') },
+                { icon: Package, label: t('product.perkReturn'), sub: t('product.perkReturnSub') },
+                { icon: Zap, label: t('product.perkDispatch'), sub: t('product.perkDispatchSub') },
               ].map((p) => (
                 <div key={p.label} className="flex items-center gap-2 border border-border p-2">
                   <p.icon className="h-4 w-4 text-primary shrink-0" />
@@ -216,16 +220,16 @@ const ProductDetail: React.FC = () => {
 
         {/* Spec */}
         <div className="industrial-border p-6 bg-card mb-12">
-          <h3 className="text-xl font-display text-primary mb-4 border-b border-border pb-2">
-            &gt; SPECIFICATIONS
+            <h3 className="text-xl font-display text-primary mb-4 border-b border-border pb-2">
+            {t('product.specifications')}
           </h3>
             <div className="grid md:grid-cols-2 gap-x-8">
-              <div className="data-row"><span className="label">PRODUCT ID</span><span className="value">{product.id}</span></div>
-              <div className="data-row"><span className="label">CATEGORY</span><span className="value">{product.category}</span></div>
-              <div className="data-row"><span className="label">BRAND</span><span className="value">{product.brand}</span></div>
-              <div className="data-row"><span className="label">UNIT</span><span className="value">{product.unit}</span></div>
-              <div className="data-row"><span className="label">RATING</span><span className="value">{product.rating} / 5.0</span></div>
-              <div className="data-row"><span className="label">STOCK</span><span className="value">{maxQuantity} available</span></div>
+              <div className="data-row"><span className="label">{t('product.productId')}</span><span className="value">{product.id}</span></div>
+              <div className="data-row"><span className="label">{t('product.category')}</span><span className="value">{translateCategory(product.category)}</span></div>
+              <div className="data-row"><span className="label">{t('product.brand')}</span><span className="value">{product.brand}</span></div>
+              <div className="data-row"><span className="label">{t('product.unit')}</span><span className="value">{product.unit}</span></div>
+              <div className="data-row"><span className="label">{t('product.rating')}</span><span className="value">{product.rating} / 5.0</span></div>
+              <div className="data-row"><span className="label">{t('product.stock')}</span><span className="value">{t('product.availableCount', { values: { count: maxQuantity } })}</span></div>
             </div>
         </div>
 
@@ -233,7 +237,7 @@ const ProductDetail: React.FC = () => {
         {related.length > 0 && (
           <div>
             <h3 className="text-2xl font-display text-primary crt-glow mb-6 terminal-prompt">
-              RELATED ITEMS
+              {t('product.relatedItems')}
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {related.map((p) => <ProductCard key={p.id} product={p} />)}

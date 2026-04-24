@@ -452,7 +452,7 @@ const Account: React.FC = () => {
     <div className="min-h-screen bg-background">
       <Header />
       <div className="mx-auto max-w-7xl px-4 py-8">
-        <h1 className="text-3xl font-display text-primary crt-glow terminal-prompt mb-2">
+        <h1 className="mb-2 text-2xl font-display text-primary crt-glow terminal-prompt sm:text-3xl">
           {t('account.title')}
         </h1>
         <div className="text-xs text-muted-foreground mb-6">
@@ -462,7 +462,7 @@ const Account: React.FC = () => {
           </span>
         </div>
 
-        <div className="grid lg:grid-cols-4 gap-6">
+        <div className="grid gap-6 lg:grid-cols-4">
           {/* Sidebar */}
           <aside className="lg:col-span-1">
             <div className="industrial-border p-4 bg-card space-y-1">
@@ -783,7 +783,7 @@ const Account: React.FC = () => {
                               {order.status || 'pending'}
                             </span>
                           </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mt-3">
+                        <div className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 md:grid-cols-4">
                           <div>
                             <div className="text-muted-foreground text-[10px]">{t('account.method')}</div>
                             <div>{order.delivery_method.toUpperCase()}</div>
@@ -892,7 +892,7 @@ const Account: React.FC = () => {
                           <XCircle className="h-5 w-5" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 text-xs mb-4">
+                      <div className="mb-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
                         <div className="data-row"><span className="label">{t('account.status')}</span><span className="value">{(selectedOrder.status || 'pending').toUpperCase()}</span></div>
                         <div className="data-row"><span className="label">{t('account.tracking')}</span><span className="value">{selectedOrder.tracking_number}</span></div>
                         <div className="data-row"><span className="label">{t('account.method')}</span><span className="value">{selectedOrder.delivery_method || '-'}</span></div>

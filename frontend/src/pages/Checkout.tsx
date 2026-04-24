@@ -650,7 +650,7 @@ export default function CheckoutPage() {
         <Header />
         <div className="mx-auto max-w-2xl px-4 py-20 text-center">
           <ShoppingCart className="mx-auto mb-4 h-16 w-16 text-muted-foreground" />
-          <h1 className="mb-3 text-3xl font-display text-primary crt-glow">
+          <h1 className="mb-3 text-2xl font-display text-primary crt-glow sm:text-3xl">
             CART IS EMPTY
           </h1>
           <p className="mb-6 text-sm text-muted-foreground">
@@ -673,7 +673,7 @@ export default function CheckoutPage() {
         <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <div>
             <div className="text-xs uppercase text-muted-foreground">/checkout</div>
-            <h1 className="text-3xl font-display text-primary crt-glow">
+            <h1 className="text-2xl font-display text-primary crt-glow sm:text-3xl">
               {t('checkout.title')}
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
@@ -1118,7 +1118,7 @@ export default function CheckoutPage() {
           </form>
 
           <aside className="space-y-4">
-            <div className="industrial-border sticky top-32 bg-card p-6">
+            <div className="industrial-border bg-card p-6 lg:sticky lg:top-32">
               <div className="mb-4 flex items-center gap-2 border-b border-border pb-2 text-sm font-display text-primary">
                 <ShoppingCart className="h-4 w-4" />
                 ORDER SUMMARY

@@ -257,8 +257,8 @@ export default function StoreAssistant() {
           isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
         }`}
       >
-        <section className="industrial-border overflow-hidden bg-card/96 shadow-[0_0_34px_hsl(var(--primary)/0.16)] backdrop-blur-md">
-          <div className="border-b border-border bg-secondary/50 px-4 py-3">
+        <section className="industrial-border overflow-hidden bg-card/98 shadow-[0_0_34px_hsl(var(--primary)/0.16)] backdrop-blur-md">
+          <div className="border-b border-border bg-secondary/78 px-4 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/40 bg-black/70">
@@ -291,10 +291,10 @@ export default function StoreAssistant() {
             </div>
           </div>
 
-          <ScrollArea className="h-[24rem] border-b border-border bg-background/50">
+          <ScrollArea className="h-[24rem] border-b border-border bg-background/82">
             <div className="space-y-3 px-4 py-4">
               {!messages.some((message) => message.role === 'user') && (
-                <div className="rounded-sm border border-dashed border-primary/30 bg-primary/8 p-3 text-sm text-muted-foreground">
+                <div className="rounded-sm border border-dashed border-primary/30 bg-primary/14 p-3 text-sm text-muted-foreground">
                   <div className="mb-2 text-[10px] uppercase tracking-[0.24em] text-primary">
                     {t('assistant.tryAsking', 'Try asking')}
                   </div>
@@ -318,8 +318,8 @@ export default function StoreAssistant() {
                   key={message.id}
                   className={`max-w-[92%] rounded-sm border px-3 py-3 ${
                     message.role === 'assistant'
-                      ? 'border-primary/30 bg-primary/8 text-foreground'
-                      : 'ml-auto border-border bg-secondary/70 text-foreground'
+                      ? 'border-primary/30 bg-primary/14 text-foreground'
+                      : 'ml-auto border-border bg-secondary/88 text-foreground'
                   }`}
                 >
                   <div className="mb-1 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
@@ -335,7 +335,7 @@ export default function StoreAssistant() {
                         <Link
                           key={product.id}
                           to={`/product/${product.id}`}
-                          className="flex items-center gap-3 border border-border bg-card/80 p-2 transition-colors hover:border-primary/60"
+                          className="flex items-center gap-3 border border-border bg-card/92 p-2 transition-colors hover:border-primary/60"
                           onClick={() => setIsOpen(false)}
                         >
                           <div className="flex h-12 w-12 shrink-0 items-center justify-center border border-border bg-secondary/40">
@@ -379,7 +379,7 @@ export default function StoreAssistant() {
               ))}
 
               {isReplying && (
-                <div className="max-w-[92%] rounded-sm border border-primary/30 bg-primary/8 px-3 py-3 text-sm text-muted-foreground">
+                <div className="max-w-[92%] rounded-sm border border-primary/30 bg-primary/14 px-3 py-3 text-sm text-muted-foreground">
                   <div className="mb-1 text-[10px] uppercase tracking-[0.24em] text-primary">
                     {t('assistant.title', 'Simba Assist')}
                   </div>
@@ -391,14 +391,14 @@ export default function StoreAssistant() {
             </div>
           </ScrollArea>
 
-          <div className="space-y-3 bg-card px-4 py-4">
+          <div className="space-y-3 bg-card/98 px-4 py-4">
             <Textarea
               ref={textareaRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t('assistant.placeholder', 'Ask for products, meal ideas, or best deals...')}
-              className="min-h-[74px] resize-none border-border bg-background/70 text-sm"
+              className="min-h-[74px] resize-none border-border bg-background/88 text-sm"
             />
 
             <div className="flex items-center justify-between gap-3">

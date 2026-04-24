@@ -325,9 +325,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="relative overflow-hidden">
+      <div className="hero-surface relative overflow-hidden">
         <div className="absolute inset-0 grid-bg opacity-40" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_transparent_42%),linear-gradient(135deg,_rgba(2,6,23,0.98),_rgba(15,23,42,0.94))]" />
+        <div className="absolute inset-0 bg-background/35" />
 
         <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-10">
           <div className="mb-8">
@@ -367,7 +367,7 @@ export default function LoginPage() {
                 ].map((item) => (
                   <div
                     key={item}
-                    className="border border-border bg-card/70 px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted-foreground"
+                    className="border border-border bg-card/80 px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted-foreground backdrop-blur-sm"
                   >
                     <Sparkles className="mb-2 h-4 w-4 text-primary" />
                     {item}
@@ -375,7 +375,7 @@ export default function LoginPage() {
                 ))}
               </div>
 
-              <div className="max-w-xl space-y-3 border border-border/60 bg-card/70 p-4 text-sm text-muted-foreground">
+              <div className="max-w-xl space-y-3 border border-border/60 bg-card/82 p-4 text-sm text-muted-foreground backdrop-blur-sm">
                 <div className="flex items-start gap-3">
                   <Lock className="mt-0.5 h-4 w-4 text-primary" />
                   <p>
@@ -389,7 +389,7 @@ export default function LoginPage() {
                   </p>
                 </div>
                 {inviteToken && (
-                  <div className="flex items-start gap-3 border border-primary/30 bg-primary/10 p-3">
+                  <div className="flex items-start gap-3 border border-primary/30 bg-primary/12 p-3">
                     <Mail className="mt-0.5 h-4 w-4 text-primary" />
                     <div>
                       <p className="text-primary">
@@ -408,7 +408,7 @@ export default function LoginPage() {
               </div>
             </section>
 
-            <Card className="industrial-border bg-card/90 backdrop-blur scanlines">
+            <Card className="industrial-border bg-card/92 backdrop-blur scanlines">
               <CardHeader className="border-b border-border/50 pb-6">
                 <CardTitle className="font-display text-2xl text-primary crt-glow">
                   {t('auth.signInTitle')}

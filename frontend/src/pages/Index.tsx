@@ -100,36 +100,36 @@ export default function Index() {
       icon: Sparkles,
       label: t('landing.trust.branches'),
       value: '9',
-      sub: 'Real Simba Kigali branches',
+      sub: t('landing.trustBranchSub'),
     },
     {
       icon: Truck,
       label: t('landing.trust.delivery'),
       value: '45M',
-      sub: 'Fast Kigali delivery',
+      sub: t('landing.trustDeliverySub'),
     },
   ];
 
   const retailFeatures = [
     {
       icon: Truck,
-      title: 'Delivery and pickup',
-      sub: 'Order online and choose the fastest option.',
+      title: t('landing.deliveryPickup'),
+      sub: t('landing.deliveryPickupSub'),
     },
     {
       icon: Shield,
-      title: 'Secure checkout',
-      sub: 'MTN MoMo, Airtel Money, card, or cash on delivery.',
+      title: t('landing.secureCheckout'),
+      sub: t('landing.secureCheckoutSub'),
     },
     {
       icon: Clock,
-      title: 'Fresh stock daily',
-      sub: 'Popular products and promo items updated often.',
+      title: t('landing.freshStockDaily'),
+      sub: t('landing.freshStockDailySub'),
     },
     {
       icon: Zap,
-      title: 'Quick re-order',
-      sub: 'Return to your favorite products in just a few clicks.',
+      title: t('landing.quickReorder'),
+      sub: t('landing.quickReorderSub'),
     },
   ];
 
@@ -137,8 +137,8 @@ export default function Index() {
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <section className="relative overflow-hidden border-b border-border bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.18),_transparent_42%),linear-gradient(135deg,_rgba(2,6,23,0.98),_rgba(15,23,42,0.94))]">
-        <div className="absolute inset-0 grid-bg opacity-35" />
+      <section className="hero-surface relative overflow-hidden border-b border-border">
+        <div className="absolute inset-0 grid-bg opacity-25 dark:opacity-35" />
         <div className="absolute inset-0 scanlines-strong pointer-events-none" />
 
         <div className="mx-auto max-w-7xl px-4 py-16 md:py-24 relative">
@@ -148,7 +148,7 @@ export default function Index() {
                 <Sparkles className="h-3 w-3" />
                 {t('landing.badge')}
               </div>
-              <h1 className="font-display text-5xl md:text-7xl text-primary leading-none crt-glow-strong">
+              <h1 className="font-display text-4xl text-primary leading-none crt-glow-strong sm:text-5xl md:text-7xl">
                 {t('landing.title')}
               </h1>
               <p className="mt-6 text-muted-foreground max-w-lg text-sm md:text-base leading-relaxed">
@@ -171,11 +171,11 @@ export default function Index() {
                   href="#best-sellers"
                   className="border border-border px-4 py-2 uppercase tracking-wider text-sm hover:border-primary hover:text-primary transition-all"
                 >
-                  BEST SELLERS
+                  {t('landing.bestsellersLink')}
                 </a>
               </div>
 
-              <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl">
+              <div className="mt-10 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                 {summaryCards.map((card) => {
                   const Icon = card.icon;
                   return (
@@ -200,11 +200,11 @@ export default function Index() {
               <div className="industrial-border p-5 bg-card/85 backdrop-blur scanlines">
                 <div className="flex items-center gap-2 border-b border-border pb-2 mb-4 text-xs uppercase tracking-wider text-muted-foreground">
                   <Flame className="h-3 w-3 text-accent" />
-                  TODAY&apos;S TOP PICKS
+                  {t('landing.topPicks')}
                 </div>
                 {loading && heroProducts.length === 0 ? (
                   <div className="py-12 text-center text-muted-foreground">
-                    Loading market catalog...
+                    {t('landing.loadingCatalog')}
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -253,7 +253,7 @@ export default function Index() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {retailFeatures.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -275,12 +275,12 @@ export default function Index() {
       </section>
 
       <section className="border-b border-border">
-        <div className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-4 py-8 sm:grid-cols-2 md:grid-cols-4">
           {[
-            { icon: Truck, title: 'DELIVERY READY', sub: 'Fast Kigali delivery' },
-            { icon: Shield, title: 'SAFE PAYMENTS', sub: 'MoMo, Airtel, card, COD' },
-            { icon: Clock, title: 'FRESH STOCK', sub: 'Popular items restocked often' },
-            { icon: BadgePercent, title: 'DAILY PROMOS', sub: 'Hot deals and special prices' },
+            { icon: Truck, title: t('landing.deliveryReady'), sub: t('landing.deliveryReadySub') },
+            { icon: Shield, title: t('landing.safePayments'), sub: t('landing.safePaymentsSub') },
+            { icon: Clock, title: t('landing.freshStock'), sub: t('landing.freshStockSub') },
+            { icon: BadgePercent, title: t('landing.dailyPromos'), sub: t('landing.dailyPromosSub') },
           ].map((item) => (
             <div key={item.title} className="flex items-center gap-3 border border-border p-4 bg-secondary/30">
               <item.icon className="h-6 w-6 text-primary shrink-0" />
@@ -297,31 +297,31 @@ export default function Index() {
         <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
           <div>
             <div className="text-xs uppercase tracking-widest text-accent flex items-center gap-2">
-              <Flame className="h-3 w-3" /> HOT DEALS
+              <Flame className="h-3 w-3" /> {t('landing.hotDeals')}
             </div>
             <h2 className="text-3xl font-display text-accent crt-glow">
-              TOP SALE PICKS
+              {t('landing.topSalePicks')}
             </h2>
           </div>
           <Link to="/shop?sale=1" className="terminal-btn text-xs">
-            VIEW ALL DEALS
+            {t('landing.viewAllDeals')}
           </Link>
         </div>
         {loading && hotDeals.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
-            Loading hot deals...
+            {t('landing.loadingHotDeals')}
           </div>
         ) : hotDeals.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
             {hotDeals.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
           </div>
         ) : (
           <div className="text-center py-20 border border-dashed border-border">
-            <div className="text-muted-foreground mb-2">No sale items right now.</div>
+            <div className="text-muted-foreground mb-2">{t('landing.noSaleItems')}</div>
             <Link to="/shop" className="terminal-btn text-xs">
-              BROWSE ALL PRODUCTS
+              {t('landing.browseAllProducts')}
             </Link>
           </div>
         )}
@@ -332,22 +332,22 @@ export default function Index() {
           <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
             <div>
               <div className="text-xs uppercase tracking-widest text-muted-foreground">
-                CUSTOMER FAVORITES
+                {t('landing.customerFavorites')}
               </div>
               <h2 className="text-3xl font-display text-primary crt-glow">
-                BEST SELLERS
+                {t('landing.bestSellersHeading')}
               </h2>
             </div>
             <Link to="/shop" className="text-xs uppercase tracking-wider text-muted-foreground hover:text-primary">
-              VIEW ALL PRODUCTS
+              {t('landing.viewAllProducts')}
             </Link>
           </div>
           {loading && bestSellers.length === 0 ? (
             <div className="text-center py-20 text-muted-foreground">
-              Loading best sellers...
+              {t('landing.loadingBestSellers')}
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
               {bestSellers.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -360,22 +360,22 @@ export default function Index() {
         <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
           <div>
             <div className="text-xs uppercase tracking-widest text-muted-foreground">
-              EVERYDAY VALUE
+              {t('landing.everyDayValue')}
             </div>
             <h2 className="text-3xl font-display text-primary crt-glow">
-              VALUE PICKS
+              {t('landing.valuePicks')}
             </h2>
           </div>
           <Link to="/shop" className="text-xs uppercase tracking-wider text-muted-foreground hover:text-primary">
-            SHOP MORE
+            {t('landing.shopMore')}
           </Link>
         </div>
         {loading && valuePicks.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
-            Loading value picks...
+            {t('landing.loadingValuePicks')}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
             {valuePicks.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
@@ -387,17 +387,17 @@ export default function Index() {
         <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
           <div>
             <div className="text-xs uppercase tracking-widest text-muted-foreground">
-              SHOP BY CATEGORY
+              {t('landing.shopByCategory')}
             </div>
             <h2 className="text-3xl font-display text-primary crt-glow">
-              POPULAR AISLES
+              {t('landing.popularAisles')}
             </h2>
           </div>
           <Link to="/shop" className="text-xs uppercase tracking-wider text-muted-foreground hover:text-primary">
-            EXPLORE ALL
+            {t('landing.exploreAll')}
           </Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5">
           {categoryStats.map((category) => (
             <Link
               key={category.name}
@@ -405,13 +405,13 @@ export default function Index() {
               className="card-industrial p-4 text-left group"
             >
                 <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                CATEGORY
+                {t('landing.category')}
               </div>
               <div className="mt-2 text-lg font-display text-primary group-hover:crt-glow">
                 {translateCategory(category.name)}
               </div>
               <div className="mt-2 text-xs text-accent">
-                [{category.count} items]
+                {t('landing.itemsCount', { count: category.count })}
               </div>
             </Link>
           ))}

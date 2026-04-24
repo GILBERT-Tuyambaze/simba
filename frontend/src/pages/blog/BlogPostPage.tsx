@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import BlogArticleLayout from '@/components/blog/BlogArticleLayout';
 import MarkdownArticle from '@/components/blog/MarkdownArticle';
 import { getBlogPost, getPostSeoMeta } from '@/lib/blog';
+import { useI18n } from '@/lib/i18n';
 
 function getSlugFromPathname(pathname: string) {
   return pathname
@@ -37,6 +38,7 @@ function getCurrentPageUrl(pathname: string) {
 }
 
 const BlogPostPage = () => {
+  const { t } = useI18n();
   const location = useLocation();
   const slug = getSlugFromPathname(location.pathname);
   const post = slug === '*' ? null : getBlogPost(slug);
@@ -149,10 +151,10 @@ const BlogPostPage = () => {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-blue-50 p-6 text-center">
         <div className="space-y-6 max-w-md">
           <div className="space-y-4">
-            <h1 className="text-7xl font-bold text-gray-300">404</h1>
-            <h2 className="text-2xl font-bold text-gray-800">Page Not Found</h2>
+            <h1 className="text-5xl font-bold text-gray-300 sm:text-7xl">404</h1>
+            <h2 className="text-xl font-bold text-gray-800 sm:text-2xl">{t('blog.post.notFoundTitle')}</h2>
             <p className="text-base text-muted-foreground">
-              Sorry, the blog post you are looking for does not exist or has been removed.
+              {t('blog.post.notFoundBody')}
             </p>
           </div>
         </div>

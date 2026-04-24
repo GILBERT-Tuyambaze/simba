@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { normalizeStoreRole } from '@/lib/store-roles';
+import { useI18n } from '@/lib/i18n';
 
 type Props = {
   actorRole: string;
@@ -158,6 +159,7 @@ export default function ProductCreatePanel({
   editingProduct,
   onCancelEdit,
 }: Props) {
+  const { t } = useI18n();
   const normalizedRole = normalizeStoreRole(actorRole);
   const branchLocked = normalizedRole !== 'super_admin';
 
@@ -182,7 +184,7 @@ export default function ProductCreatePanel({
 
   const handleSubmit = async () => {
     if (!form.name.trim() || !form.category.trim()) {
-      toast.error('Name and category are required.');
+      toast.error(t('admin.productNameCategoryRequired'));
       return;
     }
 
@@ -227,10 +229,10 @@ export default function ProductCreatePanel({
 
       if (editingProduct) {
         await updateAdminProduct(editingProduct.id, payload);
-        toast.success('Product updated successfully.');
+        toast.success(t('admin.productUpdated'));
       } else {
         await createAdminProduct(payload);
-        toast.success('Product created successfully.');
+        toast.success(t('admin.productCreated'));
       }
 
       setForm(createBlankForm(defaultBranch));
@@ -239,7 +241,7 @@ export default function ProductCreatePanel({
         onCancelEdit();
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save product.');
+      toast.error(error instanceof Error ? error.message : t('admin.productSaveFailed'));
     } finally {
       setBusy(false);
     }
@@ -249,13 +251,15 @@ export default function ProductCreatePanel({
     <div className="mb-6 border border-border bg-secondary/20 p-4">
       <div className="mb-3 flex items-center gap-2 text-sm font-display text-primary">
         <Plus className="h-4 w-4" />
-        {editingProduct ? `Edit Product #${editingProduct.id}` : 'Add Product Flow'}
+        {editingProduct
+          ? t('admin.editProductTitle', { values: { id: editingProduct.id } })
+          : t('admin.addProductFlow')}
       </div>
       {editingProduct && onCancelEdit && (
         <div className="mb-3 flex items-center justify-between gap-3 border border-dashed border-border bg-background/50 p-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          <span>Editing an existing product. Save to apply changes.</span>
+          <span>{t('admin.editingExistingProduct')}</span>
           <Button type="button" variant="outline" onClick={onCancelEdit}>
-            Cancel edit
+            {t('admin.cancelEdit')}
           </Button>
         </div>
       )}
@@ -263,23 +267,23 @@ export default function ProductCreatePanel({
         <div className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="product_name">Product name</Label>
+              <Label htmlFor="product_name">{t('admin.productName')}</Label>
               <Input id="product_name" value={form.name} onChange={(event) => updateField('name', event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="product_category">Category</Label>
+              <Label htmlFor="product_category">{t('admin.productCategory')}</Label>
               <Input id="product_category" value={form.category} onChange={(event) => updateField('category', event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="product_price">Price</Label>
+              <Label htmlFor="product_price">{t('admin.productPrice')}</Label>
               <Input id="product_price" type="number" value={form.price} onChange={(event) => updateField('price', event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="product_stock">Stock</Label>
+              <Label htmlFor="product_stock">{t('admin.productStock')}</Label>
               <Input id="product_stock" type="number" value={form.stock_count} onChange={(event) => updateField('stock_count', event.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="product_branch">Branch</Label>
+              <Label htmlFor="product_branch">{t('admin.branch')}</Label>
               <select
                 id="product_branch"
                 value={branchLocked ? defaultBranch || form.branch : form.branch}
@@ -295,24 +299,24 @@ export default function ProductCreatePanel({
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="product_image">Image URL</Label>
+              <Label htmlFor="product_image">{t('admin.productImageUrl')}</Label>
               <Input id="product_image" value={form.image} onChange={(event) => updateField('image', event.target.value)} />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="product_description">Description</Label>
+            <Label htmlFor="product_description">{t('admin.productDescription')}</Label>
             <Textarea id="product_description" rows={4} value={form.description} onChange={(event) => updateField('description', event.target.value)} />
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="product_tags">Tags</Label>
-              <Input id="product_tags" value={form.tags} onChange={(event) => updateField('tags', event.target.value)} placeholder="fresh, dairy, breakfast" />
+              <Label htmlFor="product_tags">{t('admin.productTags')}</Label>
+              <Input id="product_tags" value={form.tags} onChange={(event) => updateField('tags', event.target.value)} placeholder={t('admin.productTagsPlaceholder')} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="product_options">Options</Label>
-              <Input id="product_options" value={form.options} onChange={(event) => updateField('options', event.target.value)} placeholder="large, medium, small" />
+              <Label htmlFor="product_options">{t('admin.productOptions')}</Label>
+              <Input id="product_options" value={form.options} onChange={(event) => updateField('options', event.target.value)} placeholder={t('admin.productOptionsPlaceholder')} />
             </div>
           </div>
         </div>
@@ -320,16 +324,16 @@ export default function ProductCreatePanel({
         <div className="space-y-3">
           <div className="grid gap-3 md:grid-cols-2">
             {[
-              ['attributes', 'Attributes JSON/list'],
-              ['variations', 'Variations JSON/list'],
-              ['addons', 'Addons'],
-              ['modifiers', 'Modifiers'],
-              ['upsells', 'Upsell IDs'],
-              ['cross_sells', 'Cross-sell IDs'],
-              ['related_products', 'Related IDs'],
-              ['recommended_products', 'Recommended IDs'],
-              ['similar_products', 'Similar IDs'],
-              ['frequently_bought_together', 'Frequently bought together IDs'],
+              ['attributes', t('admin.attributesJson')],
+              ['variations', t('admin.variationsJson')],
+              ['addons', t('admin.addons')],
+              ['modifiers', t('admin.modifiers')],
+              ['upsells', t('admin.upsellIds')],
+              ['cross_sells', t('admin.crossSellIds')],
+              ['related_products', t('admin.relatedIds')],
+              ['recommended_products', t('admin.recommendedIds')],
+              ['similar_products', t('admin.similarIds')],
+              ['frequently_bought_together', t('admin.frequentlyBoughtIds')],
             ].map(([field, label]) => (
               <div key={field} className="space-y-2">
                 <Label htmlFor={field}>{label}</Label>
@@ -345,16 +349,16 @@ export default function ProductCreatePanel({
 
           <div className="grid gap-2 sm:grid-cols-2">
             {[
-              ['available_for_delivery', 'Available for delivery'],
-              ['best_seller', 'Best seller'],
-              ['new_arrival', 'New arrival'],
-              ['featured', 'Featured'],
-              ['on_sale', 'On sale'],
-              ['out_of_stock', 'Out of stock'],
-              ['low_stock', 'Low stock'],
-              ['backorder', 'Backorder'],
-              ['pre_order', 'Pre-order'],
-              ['discontinued', 'Discontinued'],
+              ['available_for_delivery', t('admin.availableForDelivery')],
+              ['best_seller', t('admin.bestSeller')],
+              ['new_arrival', t('admin.newArrival')],
+              ['featured', t('admin.featured')],
+              ['on_sale', t('admin.onSale')],
+              ['out_of_stock', t('admin.outOfStock')],
+              ['low_stock', t('admin.lowStock')],
+              ['backorder', t('admin.backorder')],
+              ['pre_order', t('admin.preOrder')],
+              ['discontinued', t('admin.discontinued')],
             ].map(([field, label]) => (
               <label key={field} className="flex items-center gap-2 text-xs text-muted-foreground">
                 <input
@@ -371,11 +375,11 @@ export default function ProductCreatePanel({
             <Save className="h-4 w-4" />
             {busy
               ? editingProduct
-                ? 'Updating product...'
-                : 'Creating product...'
+                ? t('admin.updatingProduct')
+                : t('admin.creatingProduct')
               : editingProduct
-                ? 'Update product'
-                : 'Create product'}
+                ? t('admin.updateProduct')
+                : t('admin.createProduct')}
           </Button>
         </div>
       </div>

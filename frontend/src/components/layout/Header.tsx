@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Search, User, MapPin, Menu, X, Terminal, Shield } from 'lucide-react';
+import { ShoppingCart, Search, User, MapPin, Menu, X, Terminal, Shield, Sun, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { BRANCHES, getBranchDetails } from '@/lib/types';
@@ -22,10 +23,14 @@ const Header: React.FC = () => {
   const { totalItems, branch, setBranch } = useCart();
   const { user, login, logout, isAdmin } = useAuth();
   const { language, setLanguage, suggestedLanguage, dismissSuggestedLanguage, t } = useI18n();
+  const { resolvedTheme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [branchRatings, setBranchRatings] = useState<Record<string, { rating: number; reviewCount: number }>>({});
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [isCompact, setIsCompact] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
   const branchDetails = getBranchDetails(branch);
 
   useEffect(() => {
@@ -56,6 +61,44 @@ const Header: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const headerElement = headerRef.current;
+    if (!headerElement) {
+      return;
+    }
+
+    const updateHeaderHeight = () => {
+      setHeaderHeight(headerElement.offsetHeight);
+    };
+
+    updateHeaderHeight();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateHeaderHeight();
+    });
+
+    resizeObserver.observe(headerElement);
+    window.addEventListener('resize', updateHeaderHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
+  }, [mobileOpen, suggestedLanguage]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsCompact(window.scrollY > 24);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (search.trim()) {
@@ -65,15 +108,20 @@ const Header: React.FC = () => {
     }
   };
 
+  const isLightTheme = resolvedTheme === 'light';
+
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
-      {suggestedLanguage && (
-        <div className="border-b border-primary/30 bg-primary/10">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 text-xs">
+    <>
+      <header ref={headerRef} className="fixed inset-x-0 top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
+        {suggestedLanguage && (
+          <div className="border-b border-primary/30 bg-primary/10">
+          <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-3 px-4 py-2 text-xs sm:flex-row sm:items-center">
             <span className="text-primary">
               {suggestedLanguage === 'rw'
-                ? 'We detected Rwanda/Kinyarwanda settings. Switch the site to Kinyarwanda?'
-                : 'We detected French settings. Switch the site to French?'}
+                ? t('header.suggestionRw')
+                : suggestedLanguage === 'sw'
+                  ? t('header.suggestionSw')
+                  : t('header.suggestionFr')}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -84,14 +132,14 @@ const Header: React.FC = () => {
                 }}
                 className="border border-primary px-2 py-1 uppercase tracking-[0.2em] text-primary"
               >
-                Use {suggestedLanguage.toUpperCase()}
+                {t('header.useLanguage', { values: { language: suggestedLanguage.toUpperCase() } })}
               </button>
               <button
                 type="button"
                 onClick={dismissSuggestedLanguage}
                 className="border border-border px-2 py-1 uppercase tracking-[0.2em] text-muted-foreground"
               >
-                Keep {language.toUpperCase()}
+                {t('header.keepLanguage', { values: { language: language.toUpperCase() } })}
               </button>
             </div>
           </div>
@@ -99,7 +147,11 @@ const Header: React.FC = () => {
       )}
 
       {/* Top strip */}
-      <div className="border-b border-border/50 bg-secondary/40">
+      <div
+        className={`overflow-hidden border-b border-border/50 bg-secondary/40 transition-all duration-200 ${
+          isCompact ? 'max-h-0 border-b-0 opacity-0' : 'max-h-12 opacity-100'
+        }`}
+      >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-1 text-xs text-muted-foreground">
           <span className="crt-glow flex items-center gap-2">
             <Terminal className="h-3 w-3" />
@@ -107,15 +159,25 @@ const Header: React.FC = () => {
           </span>
           <div className="hidden items-center gap-3 md:flex">
             <span>{t('header.freeDelivery')}</span>
+            <button
+              type="button"
+              onClick={() => setTheme(isLightTheme ? 'dark' : 'light')}
+              className="inline-flex items-center gap-2 border border-border bg-background px-2 py-1 text-[10px] uppercase tracking-[0.2em] hover:border-primary hover:text-primary"
+              aria-label={isLightTheme ? t('header.switchDark') : t('header.switchLight')}
+            >
+              {isLightTheme ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+              {isLightTheme ? t('header.dark') : t('header.light')}
+            </button>
             <select
               value={language}
-              onChange={(event) => setLanguage(event.target.value as 'en' | 'rw' | 'fr')}
+              onChange={(event) => setLanguage(event.target.value as 'en' | 'rw' | 'fr' | 'sw')}
               className="border border-border bg-background px-2 py-1 text-[10px] uppercase tracking-[0.2em]"
-              aria-label="language"
+              aria-label={t('header.language')}
             >
               <option value="en">EN</option>
               <option value="rw">RW</option>
               <option value="fr">FR</option>
+              <option value="sw">SW</option>
             </select>
           </div>
         </div>
@@ -129,12 +191,16 @@ const Header: React.FC = () => {
             alt={BRAND_TITLE}
             className="h-10 w-10 border border-primary bg-black object-contain crt-glow-strong"
           />
-          <div className="hidden sm:block">
+          <div
+            className={`hidden overflow-hidden transition-all duration-200 sm:block ${
+              isCompact ? 'max-h-0 opacity-0' : 'max-h-12 opacity-100'
+            }`}
+          >
             <div className="font-display text-2xl leading-none text-primary crt-glow">
               SIMBA
             </div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              SUPERMARKET // EST.2026
+              {t('header.brandLine')}
             </div>
           </div>
         </Link>
@@ -163,7 +229,7 @@ const Header: React.FC = () => {
                     <div>{b}</div>
                     <div className="text-[10px] text-muted-foreground">{details?.shortAddress}</div>
                     <div className="text-[10px] text-accent">
-                      {rating.toFixed(1)}★ · {reviewCount} {t('header.branchReviews')}
+                      {rating.toFixed(1)}? · {reviewCount} {t('header.branchReviews')}
                     </div>
                   </div>
                 </DropdownMenuItem>
@@ -185,12 +251,22 @@ const Header: React.FC = () => {
 
         {/* Actions */}
         <div className="ml-auto flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTheme(isLightTheme ? 'dark' : 'light')}
+            className="flex items-center gap-2 border border-border px-3 py-2 text-xs uppercase tracking-wider hover:border-primary"
+            aria-label={isLightTheme ? t('header.switchDark') : t('header.switchLight')}
+          >
+            {isLightTheme ? <Moon className="h-4 w-4 text-primary" /> : <Sun className="h-4 w-4 text-primary" />}
+            <span className="hidden sm:inline">{isLightTheme ? t('header.dark') : t('header.light')}</span>
+          </button>
+
           {/* Account */}
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="flex items-center gap-2 border border-border px-3 py-2 text-xs uppercase tracking-wider hover:border-primary"
-                aria-label="account menu"
+                aria-label={t('header.accountMenu')}
               >
                 <User className="h-4 w-4 text-primary" />
               </DropdownMenuTrigger>
@@ -242,7 +318,7 @@ const Header: React.FC = () => {
           <button
             className="md:hidden border border-border p-2"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="menu"
+            aria-label={t('header.menu')}
           >
             {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
           </button>
@@ -251,7 +327,7 @@ const Header: React.FC = () => {
 
       {/* Nav */}
       <nav className="hidden md:block border-t border-border/50 bg-secondary/20">
-        <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-2 text-xs uppercase tracking-wider">
+        <div className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto whitespace-nowrap px-4 py-2 text-xs uppercase tracking-wider">
           <Link to="/" className="hover:text-primary transition-colors">{t('nav.home')}</Link>
           <Link to="/shop" className="hover:text-primary transition-colors">{t('nav.shop')}</Link>
           <Link to="/shop?category=Food Products" className="hover:text-primary transition-colors">{t('nav.food')}</Link>
@@ -287,12 +363,12 @@ const Header: React.FC = () => {
               return (
                 <option key={b} value={b}>
                   {b}
-                  {details ? ` (${rating.toFixed(1)}★)` : ''}
+                  {details ? ` (${rating.toFixed(1)}?)` : ''}
                 </option>
               );
             })}
           </select>
-          <div className="grid grid-cols-2 gap-2 text-xs uppercase">
+          <div className="grid grid-cols-1 gap-2 text-xs uppercase sm:grid-cols-2">
             <Link to="/" onClick={() => setMobileOpen(false)} className="border border-border p-2">{t('nav.home')}</Link>
             <Link to="/shop" onClick={() => setMobileOpen(false)} className="border border-border p-2">{t('nav.shop')}</Link>
             <Link to="/cart" onClick={() => setMobileOpen(false)} className="border border-border p-2">{t('header.cart')}</Link>
@@ -300,20 +376,32 @@ const Header: React.FC = () => {
           </div>
           <select
             value={language}
-            onChange={(event) => setLanguage(event.target.value as 'en' | 'rw' | 'fr')}
+            onChange={(event) => setLanguage(event.target.value as 'en' | 'rw' | 'fr' | 'sw')}
             className="w-full border border-border bg-input p-2 font-mono text-sm"
           >
-            <option value="en">English</option>
-            <option value="rw">Kinyarwanda</option>
-            <option value="fr">Francais</option>
+            <option value="en">{t('header.langEnglish')}</option>
+            <option value="rw">{t('header.langRw')}</option>
+            <option value="fr">{t('header.langFr')}</option>
+            <option value="sw">{t('header.langSw')}</option>
           </select>
+          <button
+            type="button"
+            onClick={() => setTheme(isLightTheme ? 'dark' : 'light')}
+            className="w-full border border-border p-2 text-left text-sm uppercase tracking-[0.2em] hover:border-primary"
+          >
+            {isLightTheme ? t('header.switchDark') : t('header.switchLight')}
+          </button>
           {!user && (
             <button onClick={() => login()} className="terminal-btn w-full text-xs">{t('header.login')}</button>
           )}
         </div>
       )}
-    </header>
+      </header>
+      <div aria-hidden="true" style={{ height: headerHeight }} />
+    </>
   );
 };
 
 export default Header;
+
+

@@ -4,6 +4,7 @@ import { ShoppingCart, Star } from 'lucide-react';
 import { Product, formatRWF } from '@/lib/types';
 import { useCart } from '@/contexts/CartContext';
 import { getProductStockForBranch } from '@/lib/product-stock';
+import { useI18n } from '@/lib/i18n';
 
 interface Props {
   product: Product;
@@ -12,6 +13,7 @@ interface Props {
 
 const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
   const { addItem, branch } = useCart();
+  const { t, translateCategory } = useI18n();
   const discountedPrice = product.discount > 0 ? product.price * (1 - product.discount / 100) : product.price;
   const maxQuantity = getProductStockForBranch(product, branch);
 
@@ -36,7 +38,7 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
           <img src={product.image} alt={product.name} className="w-full h-full object-contain" loading="lazy" />
         </div>
         <div className="flex-1 min-w-0 flex flex-col">
-          <div className="text-[10px] uppercase text-muted-foreground tracking-wider">{product.category}</div>
+          <div className="text-[10px] uppercase text-muted-foreground tracking-wider">{translateCategory(product.category)}</div>
           <div className="text-sm font-medium line-clamp-2 mt-1">{product.name}</div>
           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
             <Star className="h-3 w-3 fill-accent text-accent" />
@@ -50,7 +52,7 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
               <div className="text-primary font-semibold crt-glow">{formatRWF(discountedPrice)}</div>
             </div>
             <button onClick={handleAdd} className="terminal-btn text-[10px] py-1.5 px-2 flex items-center gap-1">
-              <ShoppingCart className="h-3 w-3" /> ADD
+              <ShoppingCart className="h-3 w-3" /> {t('product.addShort')}
             </button>
           </div>
         </div>
@@ -67,7 +69,7 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
       )}
       {!product.in_stock && (
         <div className="absolute top-2 right-2 z-10 bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5 uppercase">
-          OUT
+          {t('assistant.outOfStock')}
         </div>
       )}
       <div className="aspect-square bg-secondary/30 border-b border-border overflow-hidden relative scanlines">
@@ -80,7 +82,7 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
       </div>
       <div className="p-3 flex flex-col flex-1">
         <div className="text-[10px] uppercase text-muted-foreground tracking-wider truncate">
-          {product.category}
+          {translateCategory(product.category)}
         </div>
         <h3 className="text-sm font-medium mt-1 line-clamp-2 min-h-[2.5rem]">
           {product.name}
@@ -101,13 +103,13 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
             <div className="text-primary font-semibold crt-glow text-sm truncate">
               {formatRWF(discountedPrice)}
             </div>
-            <div className="text-[9px] text-muted-foreground uppercase">per {product.unit}</div>
+            <div className="text-[9px] text-muted-foreground uppercase">{t('product.perUnit', { values: { unit: product.unit } })}</div>
           </div>
           <button
             onClick={handleAdd}
             disabled={!product.in_stock || maxQuantity <= 0}
             className="shrink-0 border border-primary/50 bg-primary/10 p-2 hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-40"
-            aria-label="add to cart"
+            aria-label={t('product.addToCart')}
           >
             <ShoppingCart className="h-4 w-4" />
           </button>

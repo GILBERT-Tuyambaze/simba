@@ -70,7 +70,7 @@ const ProtectedAdminRoute: React.FC<ProtectedAdminRouteProps> = ({
                 </div>
               </div>
               <p className="text-sm">
-                {t('auth.noAccessBody')}
+                {t('auth.switchAccountPrompt')}
               </p>
             </div>
 
