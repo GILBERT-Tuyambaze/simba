@@ -118,6 +118,9 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Authentication f
     lowered.includes('invalid firebase token') ||
     lowered.includes('firebase token project mismatch') ||
     lowered.includes('firebase token issuer mismatch') ||
+    lowered.includes('token used too early') ||
+    lowered.includes('backend clock') ||
+    lowered.includes('computer clock') ||
     lowered.includes('backend firebase admin key is missing') ||
     lowered.includes('firebase service account file was not found')
   ) {
@@ -149,6 +152,8 @@ export function shouldRetryFirebaseTokenExchange(error: unknown): boolean {
   const message = getErrorMessage(error, '').toLowerCase();
   return (
     (message.includes('invalid firebase token') && !shouldResetFirebaseSession(error)) ||
+    message.includes('token used too early') ||
+    message.includes('issued slightly in the future') ||
     message.includes('token has expired') ||
     message.includes('token has been revoked')
   );

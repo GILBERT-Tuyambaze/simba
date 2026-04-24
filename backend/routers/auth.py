@@ -22,7 +22,7 @@ def derive_name_from_email(email: str) -> str:
 
 
 def map_firebase_error(error_type: str) -> int:
-    if error_type in {"token_expired", "token_revoked", "invalid_token", "project_mismatch"}:
+    if error_type in {"token_expired", "token_revoked", "invalid_token", "project_mismatch", "token_used_too_early"}:
         return status.HTTP_401_UNAUTHORIZED
     if error_type in {"not_configured", "missing_service_account_file"}:
         return status.HTTP_503_SERVICE_UNAVAILABLE

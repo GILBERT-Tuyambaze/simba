@@ -101,12 +101,48 @@ function getLocalizedAuthError(t: (key: string, fallback?: string) => string, er
   const raw = getAuthErrorMessage(error);
   const lowered = raw.toLowerCase();
 
+  if (lowered.includes('auth/invalid-credential') || lowered.includes('auth/invalid-login-credentials')) {
+    return 'Email or password is incorrect.';
+  }
+
+  if (lowered.includes('auth/user-not-found')) {
+    return 'No account exists for that email.';
+  }
+
+  if (lowered.includes('auth/wrong-password')) {
+    return 'Email or password is incorrect.';
+  }
+
+  if (lowered.includes('auth/email-already-in-use')) {
+    return 'An account with that email already exists.';
+  }
+
+  if (lowered.includes('auth/weak-password')) {
+    return 'Password is too weak. Use at least 6 characters.';
+  }
+
+  if (lowered.includes('auth/invalid-email')) {
+    return 'Enter a valid email address.';
+  }
+
+  if (lowered.includes('auth/too-many-requests')) {
+    return 'Too many login attempts. Try again later.';
+  }
+
   if (
     lowered.includes('firebase service account') ||
     lowered.includes('firebase admin key') ||
     lowered.includes('firebase is not configured')
   ) {
     return t('auth.setFirebase');
+  }
+
+  if (
+    lowered.includes('token used too early') ||
+    lowered.includes('issued slightly in the future') ||
+    lowered.includes('computer clock')
+  ) {
+    return raw;
   }
 
   return t('auth.authGeneric');

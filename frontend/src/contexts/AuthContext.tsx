@@ -32,7 +32,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const TOKEN_EXCHANGE_RETRY_DELAYS_MS = [400, 1200];
+const TOKEN_EXCHANGE_RETRY_DELAYS_MS = [800, 2500, 6000];
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -152,7 +152,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           await signOut(firebaseAuth).catch(() => {});
         }
 
-        console.warn('Firebase session sync unavailable; continuing without backend session.', error);
         clearSessionToken();
         setUser(null);
         setSessionError(

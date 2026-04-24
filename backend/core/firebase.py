@@ -12,6 +12,7 @@ from firebase_admin import credentials
 from core.config import settings
 
 logger = logging.getLogger(__name__)
+FIREBASE_CLOCK_SKEW_SECONDS = 10
 
 
 class FirebaseAuthError(Exception):
@@ -137,6 +138,16 @@ def _build_invalid_token_error(id_token: str, reason: str = "") -> FirebaseAuthE
     token_project_id = str(payload.get("aud") or "").strip()
     issuer = str(payload.get("iss") or "").strip()
     expected_project_id = _get_expected_firebase_project_id()
+    normalized_reason = reason.lower().strip()
+
+    if "token used too early" in normalized_reason:
+        message = (
+            "Firebase token was issued slightly in the future compared with the backend clock. "
+            "Retry in a few seconds and check that your computer clock is set automatically."
+        )
+        if settings.debug and reason:
+            message = f"{message} [Firebase Admin reason: {reason}]"
+        return FirebaseAuthError(message, "token_used_too_early")
 
     if expected_project_id and token_project_id and token_project_id != expected_project_id:
         return FirebaseAuthError(
@@ -226,7 +237,11 @@ def verify_firebase_id_token(id_token: str) -> Dict[str, Any]:
         raise FirebaseAuthError("Unable to initialize Firebase authentication", "initialization_failed") from exc
 
     try:
-        return firebase_auth.verify_id_token(id_token, check_revoked=True)
+        return firebase_auth.verify_id_token(
+            id_token,
+            check_revoked=True,
+            clock_skew_seconds=FIREBASE_CLOCK_SKEW_SECONDS,
+        )
     except firebase_auth.ExpiredIdTokenError as exc:
         raise FirebaseAuthError("Firebase token has expired", "token_expired") from exc
     except firebase_auth.RevokedIdTokenError as exc:
