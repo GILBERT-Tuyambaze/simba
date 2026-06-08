@@ -70,7 +70,6 @@ export const useProducts = () => {
         }
         return items;
       })
-      .catch(() => fetch('/data/products.json').then((r) => r.json() as Promise<Product[]>))
       .then((data: Product[]) => {
         cache = data.map(normalizeProduct);
         if (mounted) {
@@ -78,7 +77,12 @@ export const useProducts = () => {
           setLoading(false);
         }
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (mounted) {
+          setProducts([]);
+          setLoading(false);
+        }
+      });
     return () => {
       mounted = false;
     };

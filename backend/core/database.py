@@ -38,12 +38,83 @@ class DatabaseManager:
         Some providers (e.g. Neon) may inject parameters like ``channel_binding``
         that are not supported by asyncpg and cause connection failures.
         """
-        unsupported_params = {"channel_binding"}
+        unsupported_params = {"channel_binding", "ssl", "sslmode", "sslcert", "sslkey", "sslrootcert"}
         found = unsupported_params & set(url.query)
         if found:
             logger.warning(f"Removed unsupported database URL query params: {sorted(found)}")
             return url.set(query={k: v for k, v in url.query.items() if k not in unsupported_params})
         return url
+
+    @staticmethod
+    def _get_query_param(url, key: str) -> str | None:
+        value = url.query.get(key)
+        if isinstance(value, (list, tuple)):
+            value = value[-1] if value else None
+        if value is None:
+            return None
+        return str(value).strip().lower()
+
+    @staticmethod
+    def _is_local_host(host: str | None) -> bool:
+        if not host:
+            return True
+        normalized = host.strip().lower()
+        return normalized in {"localhost", "127.0.0.1", "::1", "0.0.0.0"} or normalized.endswith(".local")
+
+    def _postgres_connect_args(self, raw_url: str) -> dict:
+        """Build asyncpg connect args for hosted Postgres deployments."""
+        try:
+            url = make_url(raw_url)
+        except Exception as e:
+            logger.error(f"Failed to parse database URL for connect args: {e}")
+            return {}
+
+        drivername = url.drivername or ""
+        if "postgresql" not in drivername and "postgres" not in drivername:
+            return {}
+
+        true_values = {"1", "true", "yes", "on", "require", "required"}
+        false_values = {"0", "false", "no", "off", "disable", "disabled"}
+        verify_values = {"verify-ca", "verify-full"}
+
+        database_ssl = os.environ.get("DATABASE_SSL", "").strip().lower()
+        if database_ssl in verify_values:
+            logger.info("Enabled PostgreSQL SSL from DATABASE_SSL with certificate verification")
+            return {"ssl": database_ssl}
+        if database_ssl in true_values:
+            logger.info("Enabled PostgreSQL SSL from DATABASE_SSL")
+            return {"ssl": "require"}
+        if database_ssl in false_values:
+            logger.info("Disabled PostgreSQL SSL from DATABASE_SSL")
+            return {}
+
+        url_ssl = self._get_query_param(url, "ssl")
+        if url_ssl in verify_values:
+            logger.info("Enabled PostgreSQL SSL from DATABASE_URL ssl query parameter with certificate verification")
+            return {"ssl": url_ssl}
+        if url_ssl in true_values:
+            logger.info("Enabled PostgreSQL SSL from DATABASE_URL ssl query parameter")
+            return {"ssl": "require"}
+        if url_ssl in false_values:
+            logger.info("Disabled PostgreSQL SSL from DATABASE_URL ssl query parameter")
+            return {}
+
+        sslmode = self._get_query_param(url, "sslmode") or os.environ.get("PGSSLMODE", "").strip().lower()
+        if sslmode in verify_values:
+            logger.info("Enabled PostgreSQL SSL from sslmode with certificate verification")
+            return {"ssl": sslmode}
+        if sslmode in true_values:
+            logger.info("Enabled PostgreSQL SSL from sslmode")
+            return {"ssl": "require"}
+        if sslmode in false_values:
+            logger.info("Disabled PostgreSQL SSL from sslmode")
+            return {}
+
+        if self._is_local_host(url.host):
+            return {}
+
+        logger.info("Enabled PostgreSQL SSL for hosted database host")
+        return {"ssl": "require"}
 
     def _normalize_async_database_url(self, raw_url: str) -> str:
         """Ensure the database URL uses an async driver compatible with SQLAlchemy asyncio.
@@ -130,6 +201,9 @@ class DatabaseManager:
             engine_kwargs = {
                 "echo": settings.debug,
             }
+            connect_args = self._postgres_connect_args(settings.database_url)
+            if connect_args:
+                engine_kwargs["connect_args"] = connect_args
 
             # Check if we're in a Lambda environment
             is_lambda = bool(
