@@ -14,14 +14,19 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_RESULT_LIMIT = 8
 MAX_CONTEXT_PRODUCTS = 160
+MIN_TEXT_SCORE = 2
 DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 INTENT_HINTS: dict[str, tuple[str, ...]] = {
     "breakfast": ("milk", "bread", "eggs", "tea", "coffee", "cereal", "oats", "juice", "jam", "butter"),
     "fresh milk": ("milk", "dairy", "yogurt"),
+    "milk": ("milk", "dairy", "yogurt"),
     "tea": ("tea", "milk", "sugar", "biscuits"),
     "coffee": ("coffee", "milk", "sugar", "biscuits"),
     "snack": ("biscuits", "crisps", "juice", "soda", "chocolate"),
+    "deals": ("discount", "sale", "promo"),
+    "deal": ("discount", "sale", "promo"),
+    "essentials": ("soap", "detergent", "tissue", "water", "rice", "oil"),
 }
 STOP_WORDS = {
     "a",
@@ -38,6 +43,9 @@ STOP_WORDS = {
     "show",
     "something",
     "the",
+    "please",
+    "find",
+    "search",
     "want",
     "with",
     "you",
@@ -112,33 +120,53 @@ def _tokenize(text: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", text.lower()))
 
 
+def _terms_match(term: str, tokens: set[str], haystack: str) -> bool:
+    if term in tokens:
+        return True
+
+    if len(term) >= 4:
+        for token in tokens:
+            if token.startswith(term) or term.startswith(token):
+                return True
+
+    return len(term) >= 4 and term in haystack
+
+
+def _is_deal_intent(query: str) -> bool:
+    normalized = query.strip().lower()
+    return bool(re.search(r"\b(deals?|discounts?|promos?|sale)\b", normalized))
+
+
 def _score_product(query: str, product: Products) -> int:
     haystack = _build_product_haystack(product)
     if not haystack:
         return 0
 
-    score = 0
     normalized_query = query.strip().lower()
     terms = _expand_query_terms(query)
     tokens = _tokenize(haystack)
-
-    if normalized_query and normalized_query in haystack:
-        score += 7
+    text_score = 8 if normalized_query and normalized_query in haystack else 0
 
     for term in terms:
-        if term in tokens:
-            score += 2
+        if _terms_match(term, tokens, haystack):
+            text_score += 3
 
+    if text_score < MIN_TEXT_SCORE:
+        has_deal = (getattr(product, "discount", 0) or 0) > 0 or bool(getattr(product, "on_sale", False))
+        if not _is_deal_intent(query) or not has_deal:
+            return 0
+
+    quality_score = 0
     if getattr(product, "in_stock", False) and not getattr(product, "out_of_stock", False):
-        score += 2
+        quality_score += 2
     if (getattr(product, "rating", 0) or 0) >= 4.5:
-        score += 1
+        quality_score += 1
     if (getattr(product, "discount", 0) or 0) > 0:
-        score += 1
+        quality_score += 1
     if getattr(product, "best_seller", False):
-        score += 1
+        quality_score += 1
 
-    return score
+    return text_score + quality_score
 
 
 def _strip_code_fences(raw: str) -> str:
@@ -191,12 +219,16 @@ class CatalogAssistantService:
             if getattr(product, "name", None) and not getattr(product, "discontinued", False)
         ]
 
-        local_matches = self._build_local_matches(normalized_query, catalog, limit)
+        candidate_limit = max(limit, MAX_CONTEXT_PRODUCTS)
+        local_candidates = self._build_local_matches(normalized_query, catalog, candidate_limit)
+        local_matches = local_candidates[:limit]
         if not self.client:
+            return self._build_local_response(normalized_query, local_matches)
+        if not local_candidates:
             return self._build_local_response(normalized_query, local_matches)
 
         try:
-            ai_response = await self._search_with_groq(normalized_query, catalog, local_matches, limit)
+            ai_response = await self._search_with_groq(normalized_query, local_candidates, local_matches, limit)
             if ai_response["product_ids"]:
                 return ai_response
         except Exception as exc:
@@ -252,7 +284,7 @@ class CatalogAssistantService:
     async def _search_with_groq(
         self,
         query: str,
-        catalog: list[Products],
+        catalog_candidates: list[Products],
         local_matches: list[Products],
         limit: int,
     ) -> dict[str, Any]:
@@ -266,13 +298,14 @@ class CatalogAssistantService:
             '{"reply":"short natural language answer","product_ids":[1,2,3]}. '
             f"Select up to {limit} products from the catalog. "
             "Only include product IDs that appear in the catalog. "
+            "Do not include a product unless its name, category, tags, or description are relevant to the customer query. "
             "Prefer in-stock items. "
             "For broad requests, choose a practical basket of products."
         )
         user_prompt = (
             f'Customer query: "{query}"\n'
             f"Helpful local matches: {local_ids or 'none'}\n\n"
-            f"Catalog:\n{self._build_catalog_context(catalog)}"
+            f"Catalog candidates:\n{self._build_catalog_context(catalog_candidates)}"
         )
 
         response = await self.client.chat.completions.create(
@@ -288,7 +321,7 @@ class CatalogAssistantService:
         payload = _extract_json_object(content)
         reply = _clean_text(payload.get("reply"))
         raw_ids = payload.get("product_ids")
-        catalog_ids = {product.id for product in catalog}
+        catalog_ids = {product.id for product in catalog_candidates}
 
         parsed_ids: list[int] = []
         if isinstance(raw_ids, list):

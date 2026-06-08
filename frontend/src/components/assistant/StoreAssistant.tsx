@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowUp, MessageCircle, Sparkles, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/hooks/useProducts';
-import { runConversationalSearch } from '@/lib/conversational-search';
+import {
+  buildLocalConversationalResult,
+  buildShopSearchUrl,
+  runConversationalSearch,
+} from '@/lib/conversational-search';
 import { useI18n } from '@/lib/i18n';
 import { formatRWF, type Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -38,6 +42,7 @@ function getDisplayName(name: string | null | undefined, email: string | null | 
 
 export default function StoreAssistant() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { products, loading: productsLoading } = useProducts();
   const { t } = useI18n();
@@ -164,27 +169,55 @@ export default function StoreAssistant() {
     }
 
     setIsReplying(true);
+    const assistantMessageId = createId('assistant');
+    const localResult = buildLocalConversationalResult(query, products, 4);
+    const updateShopResults = (resultProducts: Product[], replace = false) => {
+      if (location.pathname === '/shop') {
+        navigate(buildShopSearchUrl(query, resultProducts), { replace });
+      }
+    };
+
+    setMessages((current) => [
+      ...current,
+      {
+        id: assistantMessageId,
+        role: 'assistant',
+        text: localResult.message || t('assistant.defaultReply', 'Here are the closest Simba matches I found.'),
+        products: localResult.products.slice(0, 4),
+        query,
+      },
+    ]);
+    updateShopResults(localResult.products.slice(0, 4));
+
     try {
       const result = await runConversationalSearch(query, products, 4);
-      setMessages((current) => [
-        ...current,
-        {
-          id: createId('assistant'),
-          role: 'assistant',
-          text: result.message || t('assistant.defaultReply', 'Here are the closest Simba matches I found.'),
-          products: result.products.slice(0, 4),
-          query,
-        },
-      ]);
+      const resultProducts = result.products.slice(0, 4);
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantMessageId
+            ? {
+                ...message,
+                text: result.message || t('assistant.defaultReply', 'Here are the closest Simba matches I found.'),
+                products: resultProducts,
+              }
+            : message
+        )
+      );
+      updateShopResults(resultProducts, true);
     } catch {
-      setMessages((current) => [
-        ...current,
-        {
-          id: createId('assistant'),
-          role: 'assistant',
-          text: t('assistant.error', 'I could not search the catalog right now. Please try again.'),
-        },
-      ]);
+      if (localResult.products.length === 0) {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantMessageId
+              ? {
+                  ...message,
+                  text: t('assistant.error', 'I could not search the catalog right now. Please try again.'),
+                  products: [],
+                }
+              : message
+          )
+        );
+      }
     } finally {
       setIsReplying(false);
     }
@@ -365,7 +398,7 @@ export default function StoreAssistant() {
 
                       {message.query && (
                         <Link
-                          to={`/shop?q=${encodeURIComponent(message.query)}`}
+                          to={buildShopSearchUrl(message.query, message.products || [])}
                           className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.22em] text-primary hover:text-accent"
                           onClick={() => setIsOpen(false)}
                         >

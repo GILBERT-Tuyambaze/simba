@@ -13,6 +13,24 @@ import {
   type ConversationalSearchResult,
 } from '@/lib/conversational-search';
 
+function parseProductIds(value: string | null): number[] {
+  if (!value) {
+    return [];
+  }
+
+  const seen = new Set<number>();
+  return value
+    .split(',')
+    .map((item) => Number(item.trim()))
+    .filter((id) => {
+      if (!Number.isInteger(id) || seen.has(id)) {
+        return false;
+      }
+      seen.add(id);
+      return true;
+    });
+}
+
 const Shop: React.FC = () => {
   const [params, setParams] = useSearchParams();
   const { products, loading } = useProducts();
@@ -29,6 +47,17 @@ const Shop: React.FC = () => {
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [aiResult, setAiResult] = useState<ConversationalSearchResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const selectedProductIds = useMemo(() => parseProductIds(params.get('ids')), [params]);
+  const selectedProducts = useMemo(() => {
+    if (selectedProductIds.length === 0) {
+      return [];
+    }
+
+    const productMap = new Map(products.map((product) => [product.id, product]));
+    return selectedProductIds
+      .map((id) => productMap.get(id))
+      .filter((product): product is typeof products[number] => Boolean(product));
+  }, [products, selectedProductIds]);
 
   useEffect(() => {
     setCategory(params.get('category') || '');
@@ -46,6 +75,17 @@ const Shop: React.FC = () => {
         return;
       }
 
+      if (selectedProducts.length > 0) {
+        setAiResult({
+          message: `Showing ${selectedProducts.length} assistant-selected products for "${query}".`,
+          products: selectedProducts,
+          productIds: selectedProducts.map((product) => product.id),
+          source: 'local',
+        });
+        setAiLoading(false);
+        return;
+      }
+
       setAiResult(buildLocalConversationalResult(query, products));
       setAiLoading(true);
       const result = await runConversationalSearch(query, products);
@@ -59,7 +99,7 @@ const Shop: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [products, query, t]);
+  }, [products, query, selectedProducts, t]);
 
   const categories = useMemo(() => {
     return Array.from(new Set(products.map((p) => p.category))).sort();
@@ -74,12 +114,16 @@ const Shop: React.FC = () => {
       return products;
     }
 
+    if (selectedProducts.length > 0) {
+      return selectedProducts;
+    }
+
     if (aiResult?.products.length) {
       return aiResult.products;
     }
 
     return buildLocalConversationalMatches(query, products);
-  }, [aiResult, products, query]);
+  }, [aiResult, products, query, selectedProducts]);
 
   const filtered = useMemo(() => {
     let list = [...conversationalBase];
