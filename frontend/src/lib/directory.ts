@@ -1,42 +1,32 @@
-import { getStoredSessionToken } from './auth';
-import { getAPIBaseURL } from './config';
+import { resolveBranchId } from './branches';
+import { mapSupabaseProfile } from './supabase-mappers';
+import { supabase } from './supabase';
 import type { UserProfile } from './types';
 
-function getHeaders(): HeadersInit {
-  const token = getStoredSessionToken();
-  if (!token) {
-    throw new Error('You must be signed in.');
+export async function fetchBranchDirectory(
+  branch: string,
+  role?: string
+): Promise<UserProfile[]> {
+  const branchId = await resolveBranchId(branch);
+  if (!branchId) {
+    return [];
   }
 
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
+  let query = supabase
+    .from('profiles')
+    .select('*, branches:default_branch_id(name)')
+    .eq('default_branch_id', branchId)
+    .order('created_at', { ascending: false })
+    .limit(200);
 
-export async function fetchBranchDirectory(branch: string, role?: string): Promise<UserProfile[]> {
-  const url = new URL(`${getAPIBaseURL()}/api/v1/entities/user_profiles/directory`);
-  url.searchParams.set('branch', branch);
   if (role) {
-    url.searchParams.set('role', role);
+    query = query.eq('role', role);
   }
 
-  const response = await fetch(url.toString(), {
-    headers: getHeaders(),
-  });
-
-  if (!response.ok) {
-    let detail = null as string | null;
-    try {
-      const body = await response.json();
-      if (typeof body?.detail === 'string') {
-        detail = body.detail;
-      }
-    } catch {
-      detail = null;
-    }
-    throw new Error(detail || `Request failed (${response.status})`);
+  const { data, error } = await query;
+  if (error) {
+    throw error;
   }
 
-  const data = (await response.json()) as { items?: UserProfile[] };
-  return data.items || [];
+  return (data || []).map(mapSupabaseProfile);
 }

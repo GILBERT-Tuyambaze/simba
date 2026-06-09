@@ -1,5 +1,4 @@
-import { getStoredSessionToken } from './auth';
-import { getAPIBaseURL } from './config';
+import { supabase } from './supabase';
 
 export type VisitSummary = {
   total_visits: number;
@@ -11,15 +10,6 @@ export type VisitSummary = {
 
 const VISITOR_KEY_STORAGE = 'simba_visitor_key';
 const VISITOR_LAST_SENT_DAY_STORAGE = 'simba_visitor_last_sent_day';
-
-function buildHeaders(): HeadersInit {
-  const headers: HeadersInit = {};
-  const token = getStoredSessionToken();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  return headers;
-}
 
 function getOrCreateVisitorKey(): string {
   try {
@@ -54,7 +44,7 @@ export async function trackSiteVisit(path: string): Promise<void> {
     // Ignore storage failures.
   }
 
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/analytics/visit`, {
+  const response = await fetch('/api/analytics/visit', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -78,22 +68,27 @@ export async function trackSiteVisit(path: string): Promise<void> {
 }
 
 export async function fetchVisitSummary(): Promise<VisitSummary> {
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/analytics/summary`, {
-    headers: buildHeaders(),
-  });
+  const { data, error } = await supabase
+    .from('site_visits')
+    .select('visit_day');
 
-  if (!response.ok) {
-    let detail: string | null = null;
-    try {
-      const body = await response.json();
-      if (typeof body?.detail === 'string') {
-        detail = body.detail;
-      }
-    } catch {
-      detail = null;
-    }
-    throw new Error(detail || `Failed to load analytics summary (${response.status})`);
+  if (error) {
+    throw error;
   }
 
-  return response.json() as Promise<VisitSummary>;
+  const today = getTodayKey();
+  const now = new Date(`${today}T00:00:00.000Z`).getTime();
+  const rows = data || [];
+  const withinDays = (value: string, days: number) => {
+    const day = new Date(`${value}T00:00:00.000Z`).getTime();
+    return day >= now - (days - 1) * 24 * 60 * 60 * 1000;
+  };
+
+  return {
+    total_visits: rows.length,
+    visits_today: rows.filter((row: any) => row.visit_day === today).length,
+    visits_last_7_days: rows.filter((row: any) => withinDays(row.visit_day, 7)).length,
+    visits_last_30_days: rows.filter((row: any) => withinDays(row.visit_day, 30)).length,
+    visits_last_90_days: rows.filter((row: any) => withinDays(row.visit_day, 90)).length,
+  };
 }

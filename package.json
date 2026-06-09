@@ -1,0 +1,13 @@
+{
+  "name": "simba",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev --",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "preview": "npm --prefix frontend run preview",
+    "supabase:validate": "node scripts/validate-live-supabase.mjs",
+    "supabase:seed:products": "node scripts/seed-products-from-json.mjs"
+  }
+}

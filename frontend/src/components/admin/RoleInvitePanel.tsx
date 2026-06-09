@@ -9,6 +9,7 @@ import {
   getAssignableRoles,
   getStoreRoleMeta,
   normalizeStoreRole,
+  type StoreRoleKey,
 } from '@/lib/store-roles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +40,7 @@ export default function RoleInvitePanel({
   const [inviteBranch, setInviteBranch] = useState(defaultBranch || BRANCHES[0]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [roleOverrideUserId, setRoleOverrideUserId] = useState('');
-  const [roleOverrideValue, setRoleOverrideValue] = useState('customer');
+  const [roleOverrideValue, setRoleOverrideValue] = useState<StoreRoleKey>('customer');
   const [roleOverrideBranch, setRoleOverrideBranch] = useState(defaultBranch || BRANCHES[0]);
 
   const recentInvitations = useMemo(() => invitations.slice(0, 6), [invitations]);
@@ -105,7 +106,7 @@ export default function RoleInvitePanel({
             <select
               id="invite_role"
               value={inviteRole}
-              onChange={(event) => setInviteRole(event.target.value)}
+              onChange={(event) => setInviteRole(normalizeStoreRole(event.target.value))}
               className="w-full border border-border bg-input p-2 font-mono text-sm"
             >
               {assignableRoles.map((role) => (
@@ -183,7 +184,7 @@ export default function RoleInvitePanel({
               </select>
               <select
                 value={roleOverrideValue}
-                onChange={(event) => setRoleOverrideValue(event.target.value)}
+                onChange={(event) => setRoleOverrideValue(normalizeStoreRole(event.target.value))}
                 className="w-full border border-border bg-input p-2 font-mono text-sm"
               >
                 {['super_admin', 'branch_manager', 'branch_staff', 'delivery_agent', 'customer'].map((role) => (

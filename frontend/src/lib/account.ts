@@ -1,5 +1,6 @@
-import { getAPIBaseURL } from './config';
-import { getStoredSessionToken } from './auth';
+import { resolveBranchId } from './branches';
+import { mapSupabaseOrder, mapSupabaseProfile, parseAddresses } from './supabase-mappers';
+import { supabase } from './supabase';
 import type { CheckoutPaymentMethod } from './checkout';
 import type { Order, UserProfile } from './types';
 
@@ -17,92 +18,104 @@ export type AccountProfileDraft = {
   preferred_payment_method: CheckoutPaymentMethod;
 };
 
-function getHeaders(): HeadersInit {
-  const token = getStoredSessionToken();
-  if (!token) {
+const ORDER_SELECT = `
+  *,
+  branches:branch_id(name),
+  assigned_branch:assigned_branch_id(name),
+  review_branch:review_branch_id(name),
+  order_items(*)
+`;
+
+async function requireUserId(): Promise<string> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
     throw new Error('You must be signed in.');
   }
-
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-async function readErrorDetail(response: Response): Promise<string | null> {
-  try {
-    const body = await response.json();
-    if (typeof body?.detail === 'string') {
-      return body.detail;
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
-}
-
-async function parseJson<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    const detail = await readErrorDetail(response);
-    throw new Error(detail || `Request failed (${response.status})`);
-  }
-
-  return response.json() as Promise<T>;
+  return data.user.id;
 }
 
 export async function fetchAccountOrders(): Promise<Order[]> {
-  const response = await fetch(
-    `${getAPIBaseURL()}/api/v1/entities/orders?sort=-id&limit=50`,
-    {
-      headers: getHeaders(),
-    }
-  );
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from('orders')
+    .select(ORDER_SELECT)
+    .eq('user_id', userId)
+    .order('id', { ascending: false })
+    .limit(50);
 
-  const data = await parseJson<{ items?: Order[] }>(response);
-  return data.items || [];
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).map(mapSupabaseOrder);
 }
 
 export async function fetchAccountProfile(): Promise<AccountProfileRecord | null> {
-  const response = await fetch(
-    `${getAPIBaseURL()}/api/v1/entities/user_profiles?sort=-id&limit=1`,
-    {
-      headers: getHeaders(),
-    }
-  );
+  const userId = await requireUserId();
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*, branches:default_branch_id(name)')
+    .eq('user_id', userId)
+    .maybeSingle();
 
-  const data = await parseJson<{ items?: AccountProfileRecord[] }>(response);
-  return data.items?.[0] || null;
+  if (error) {
+    throw error;
+  }
+
+  return data ? mapSupabaseProfile(data) : null;
 }
 
 export async function saveAccountProfile(
   payload: AccountProfileDraft,
-  profileId?: number | null
+  _profileId?: number | string | null
 ): Promise<AccountProfileRecord> {
-  const isUpdate = typeof profileId === 'number' && profileId > 0;
-  const response = await fetch(
-    isUpdate
-      ? `${getAPIBaseURL()}/api/v1/entities/user_profiles/${profileId}`
-      : `${getAPIBaseURL()}/api/v1/entities/user_profiles`,
-    {
-      method: isUpdate ? 'PUT' : 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    }
-  );
+  const userId = await requireUserId();
+  const defaultBranchId = await resolveBranchId(payload.default_branch);
 
-  return parseJson<AccountProfileRecord>(response);
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        user_id: userId,
+        display_name: payload.display_name,
+        phone: payload.phone,
+        email: payload.email,
+        default_branch_id: defaultBranchId,
+        addresses: parseAddresses(payload.addresses),
+        preferred_payment_method: payload.preferred_payment_method,
+      },
+      { onConflict: 'user_id' }
+    )
+    .select('*, branches:default_branch_id(name)')
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapSupabaseProfile(data);
 }
 
 export async function updateAccountOrder(
   orderId: number,
   payload: Partial<Order>
 ): Promise<Order> {
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/entities/orders/${orderId}`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify(payload),
-  });
+  const updatePayload: Record<string, unknown> = {};
+  if (payload.status) updatePayload.status = payload.status;
+  if (typeof payload.rating === 'number') updatePayload.rating = payload.rating;
+  if (payload.review_comment !== undefined) updatePayload.review_comment = payload.review_comment;
+  if (payload.review_branch) updatePayload.review_branch_id = await resolveBranchId(payload.review_branch);
 
-  return parseJson<Order>(response);
+  const { data, error } = await supabase
+    .from('orders')
+    .update(updatePayload)
+    .eq('id', orderId)
+    .select(ORDER_SELECT)
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return mapSupabaseOrder(data);
 }

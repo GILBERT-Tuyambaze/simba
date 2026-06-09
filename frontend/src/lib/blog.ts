@@ -40,14 +40,7 @@ type SeoMeta = {
   tags?: string[];
 };
 
-const markdownModules = import.meta.glob(
-  ['../../seo/content/**/*.md'],
-  {
-    query: '?raw',
-    import: 'default',
-    eager: true,
-  },
-) as Record<string, string>;
+const markdownModules: Record<string, string> = {};
 
 function parseFrontmatter(markdown: string) {
   if (!markdown.startsWith('---')) {
@@ -186,20 +179,20 @@ function getBlogRoute(slug: string) {
 }
 
 function getSiteDomainUrl() {
-  const configuredUrl = import.meta.env.VITE_SITE_URL?.trim();
+  const configuredUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   return configuredUrl ? configuredUrl.replace(/\/+$/, '') : undefined;
 }
 
 function getSiteName() {
-  return import.meta.env.VITE_APP_TITLE?.trim() || 'Simba Supermarket';
+  return process.env.NEXT_PUBLIC_APP_TITLE?.trim() || 'Simba Supermarket';
 }
 
 function getTwitterSiteHandle() {
-  return import.meta.env.VITE_TWITTER_SITE?.trim() || '@simbasupermarket';
+  return process.env.NEXT_PUBLIC_TWITTER_SITE?.trim() || '@simbasupermarket';
 }
 
 function getTwitterCreatorHandle() {
-  return import.meta.env.VITE_TWITTER_CREATOR?.trim() || getTwitterSiteHandle();
+  return process.env.NEXT_PUBLIC_TWITTER_CREATOR?.trim() || getTwitterSiteHandle();
 }
 
 function getAbsoluteUrl(pathname: string) {

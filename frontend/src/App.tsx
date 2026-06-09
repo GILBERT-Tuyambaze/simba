@@ -11,18 +11,18 @@ import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import { I18nProvider } from './lib/i18n';
-import Admin from './pages/Admin';
-import Account from './pages/Account';
-import Checkout from './pages/Checkout';
-import Login from './pages/Login';
-import Index from './pages/Index';
-import Legal from './pages/Legal';
-import Cart from './pages/Cart';
-import PaymentCancel from './pages/PaymentCancel';
-import PaymentSuccess from './pages/PaymentSuccess';
-import ProductDetail from './pages/ProductDetail';
-import Shop from './pages/Shop';
-import Support from './pages/Support';
+import Admin from './views/Admin';
+import Account from './views/Account';
+import Checkout from './views/Checkout';
+import Login from './views/Login';
+import Index from './views/Index';
+import Legal from './views/Legal';
+import Cart from './views/Cart';
+import PaymentCancel from './views/PaymentCancel';
+import PaymentSuccess from './views/PaymentSuccess';
+import ProductDetail from './views/ProductDetail';
+import Shop from './views/Shop';
+import Support from './views/Support';
 // MODULE_IMPORTS_START
 // MODULE_IMPORTS_END
 

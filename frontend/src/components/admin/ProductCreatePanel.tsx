@@ -52,13 +52,24 @@ function toJsonNumberList(value: string): string | null {
   );
 }
 
-function fromJsonList(value?: string | string[] | null): string {
+function formatListItem(item: unknown): string {
+  if (item && typeof item === 'object') {
+    return JSON.stringify(item);
+  }
+  return String(item);
+}
+
+function fromJsonList(value?: unknown): string {
   if (!value) {
     return '';
   }
 
   if (Array.isArray(value)) {
-    return value.join(', ');
+    return value.map(formatListItem).join(', ');
+  }
+
+  if (typeof value !== 'string') {
+    return formatListItem(value);
   }
 
   const trimmed = value.trim();
@@ -69,7 +80,7 @@ function fromJsonList(value?: string | string[] | null): string {
   try {
     const parsed = JSON.parse(trimmed);
     if (Array.isArray(parsed)) {
-      return parsed.join(', ');
+      return parsed.map(formatListItem).join(', ');
     }
     if (parsed && typeof parsed === 'object') {
       return Object.entries(parsed)

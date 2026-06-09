@@ -52,6 +52,7 @@ export interface CartItem {
 export interface Order {
   id: number;
   user_id: string;
+  customer_name?: string;
   branch: string;
   items: string;
   subtotal: number;
@@ -81,7 +82,7 @@ export interface Order {
 }
 
 export interface UserProfile {
-  id: number;
+  id: number | string;
   user_id: string;
   display_name: string;
   phone: string;

@@ -1,27 +1,19 @@
-import { getStoredSessionToken } from './auth';
-import { getAPIBaseURL } from './config';
+import { supabase } from './supabase';
 import type { Invitation } from './types';
 
-function getHeaders(includeJson = false): HeadersInit {
-  const headers: HeadersInit = {};
-  const token = getStoredSessionToken();
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-  if (includeJson) {
-    headers['Content-Type'] = 'application/json';
-  }
-  return headers;
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token
+    ? { Authorization: `Bearer ${data.session.access_token}` }
+    : {};
 }
 
-async function parseItemResponse<T>(response: Response): Promise<T> {
+async function parseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let detail = null as string | null;
+    let detail: string | null = null;
     try {
       const body = await response.json();
-      if (typeof body?.detail === 'string') {
-        detail = body.detail;
-      }
+      detail = typeof body?.detail === 'string' ? body.detail : null;
     } catch {
       detail = null;
     }
@@ -31,19 +23,25 @@ async function parseItemResponse<T>(response: Response): Promise<T> {
 }
 
 export async function fetchInvitationPreview(token: string): Promise<Invitation> {
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/invitations/${token}`);
-  return parseItemResponse<Invitation>(response);
+  const response = await fetch(`/api/invitations/${encodeURIComponent(token)}`);
+  return parseJson<Invitation>(response);
 }
 
 export async function acceptInvitation(token: string): Promise<{
   id: string;
   email: string;
-  role: string;
   name?: string | null;
+  role: string;
 }> {
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/invitations/${token}/accept`, {
+  const response = await fetch(`/api/invitations/${encodeURIComponent(token)}`, {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getAuthHeaders(),
   });
-  return parseItemResponse(response);
+
+  return parseJson<{
+    id: string;
+    email: string;
+    name?: string | null;
+    role: string;
+  }>(response);
 }

@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 // MODULE_BLOG_IMPORTS_START
 // MODULE_BLOG_IMPORTS_END
-import BlogIndexPage from './pages/blog/BlogIndexPage';
-import BlogPostPage from './pages/blog/BlogPostPage';
+import BlogIndexPage from './views/blog/BlogIndexPage';
+import BlogPostPage from './views/blog/BlogPostPage';
 
 const BlogRoutes = () => (
   <Routes>

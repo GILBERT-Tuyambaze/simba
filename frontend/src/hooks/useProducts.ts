@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Product } from '@/lib/types';
-import { getAPIBaseURL } from '@/lib/config';
+import { supabase } from '@/lib/supabase';
 
 let cache: Product[] | null = null;
 
@@ -58,31 +58,33 @@ export const useProducts = () => {
   useEffect(() => {
     if (cache) return;
     let mounted = true;
-    fetch(`${getAPIBaseURL()}/api/v1/entities/products/all?sort=-id&limit=1000`)
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error('Products API unavailable');
+    const loadProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('product_catalog')
+          .select('*')
+          .eq('discontinued', false)
+          .order('id', { ascending: false })
+          .limit(1000);
+
+        if (error) {
+          throw error;
         }
-        const data = await response.json();
-        const items = (data.items || []) as Product[];
-        if (items.length === 0) {
-          throw new Error('Products API returned no items');
-        }
-        return items;
-      })
-      .then((data: Product[]) => {
-        cache = data.map(normalizeProduct);
+
+        cache = ((data || []) as Product[]).map(normalizeProduct);
         if (mounted) {
           setProducts(cache);
           setLoading(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (mounted) {
           setProducts([]);
           setLoading(false);
         }
-      });
+      }
+    };
+
+    void loadProducts();
     return () => {
       mounted = false;
     };

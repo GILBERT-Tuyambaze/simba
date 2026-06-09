@@ -5,21 +5,18 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { onIdTokenChanged, signOut, type User as FirebaseUser } from 'firebase/auth';
 import {
   clearSessionToken,
-  exchangeFirebaseToken,
-  getCurrentUser,
-  getStoredSessionToken,
   getAuthErrorMessage,
-  storeSessionToken,
-  shouldRetryFirebaseTokenExchange,
-  shouldResetFirebaseSession,
   type AuthUser,
-  type TokenExchangeResponse,
 } from '@/lib/auth';
-import { firebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
-import { canAccessDashboard } from '@/lib/store-roles';
+import {
+  ensureUserProfile,
+  getProfile,
+  isSupabaseConfigured,
+  supabase,
+} from '@/lib/supabase';
+import { canAccessDashboard, normalizeStoreRole } from '@/lib/store-roles';
 
 type AuthContextValue = {
   user: AuthUser | null;
@@ -29,44 +26,37 @@ type AuthContextValue = {
   sessionError: string | null;
   login: () => void;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const TOKEN_EXCHANGE_RETRY_DELAYS_MS = [200, 600, 1200];
+async function resolveAuthUser(): Promise<AuthUser | null> {
+  if (!isSupabaseConfigured()) {
+    return null;
+  }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms);
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
+    return null;
+  }
+
+  const profile = await ensureUserProfile(data.user).catch(async () => {
+    return getProfile(data.user.id);
   });
-}
 
-async function exchangeFirebaseSessionWithRetry(firebaseUser: FirebaseUser): Promise<TokenExchangeResponse> {
-  let idToken = await firebaseUser.getIdToken();
-
-  try {
-    return await exchangeFirebaseToken(idToken);
-  } catch (error) {
-    if (!shouldRetryFirebaseTokenExchange(error)) {
-      throw error;
-    }
-  }
-
-  let lastError: unknown = null;
-  for (const retryDelay of TOKEN_EXCHANGE_RETRY_DELAYS_MS) {
-    await delay(retryDelay);
-    try {
-      idToken = await firebaseUser.getIdToken(true);
-      return await exchangeFirebaseToken(idToken);
-    } catch (error) {
-      lastError = error;
-      if (!shouldRetryFirebaseTokenExchange(error)) {
-        throw error;
-      }
-    }
-  }
-
-  throw lastError instanceof Error ? lastError : new Error('Failed to exchange Firebase token');
+  return {
+    id: data.user.id,
+    email: data.user.email || profile?.email || '',
+    name:
+      profile?.display_name ||
+      data.user.user_metadata?.display_name ||
+      data.user.user_metadata?.name ||
+      null,
+    role: normalizeStoreRole(profile?.role),
+    default_branch: profile?.default_branch || null,
+    last_login: data.user.last_sign_in_at || null,
+  };
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -77,107 +67,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [sessionSyncing, setSessionSyncing] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
+  const refreshUser = async () => {
+    if (!isSupabaseConfigured()) {
+      clearSessionToken();
+      setUser(null);
+      setSessionError('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
+      setLoading(false);
+      return;
+    }
+
+    setSessionSyncing(true);
+    try {
+      const nextUser = await resolveAuthUser();
+      setUser(nextUser);
+      setSessionError(null);
+    } catch (error) {
+      setUser(null);
+      setSessionError(getAuthErrorMessage(error, 'Failed to sync Supabase session.'));
+    } finally {
+      clearSessionToken();
+      setSessionSyncing(false);
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
 
-    async function syncLegacySession() {
-      const token = getStoredSessionToken();
-
-      if (!token) {
-        if (!cancelled) {
-          setUser(null);
-          setSessionSyncing(false);
-          setSessionError(null);
-          setLoading(false);
-        }
+    async function initialLoad() {
+      await refreshUser();
+      if (cancelled) {
         return;
       }
-
-      try {
-        const currentUser = await getCurrentUser(token);
-        if (cancelled) {
-          return;
-        }
-
-        if (currentUser) {
-          setUser(currentUser);
-          setSessionSyncing(false);
-          setSessionError(null);
-        } else {
-          clearSessionToken();
-          setUser(null);
-          setSessionSyncing(false);
-          setSessionError(null);
-        }
-      } catch {
-        if (!cancelled) {
-          clearSessionToken();
-          setUser(null);
-          setSessionSyncing(false);
-          setSessionError(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+      setLoading(false);
     }
 
-    if (!isFirebaseConfigured() || !firebaseAuth) {
-      void syncLegacySession();
+    void initialLoad();
+
+    if (!isSupabaseConfigured()) {
       return () => {
         cancelled = true;
       };
     }
 
-    const unsubscribe = onIdTokenChanged(firebaseAuth, async (firebaseUser) => {
-      if (cancelled) {
-        return;
-      }
-
-      if (!firebaseUser) {
-        clearSessionToken();
-        setUser(null);
-        setSessionSyncing(false);
-        setSessionError(null);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        setSessionSyncing(true);
-        setSessionError(null);
-        const session: TokenExchangeResponse = await exchangeFirebaseSessionWithRetry(firebaseUser);
-
-        if (cancelled) {
-          return;
-        }
-
-        storeSessionToken(session.token);
-        setUser(session.user);
-        setSessionSyncing(false);
-        setSessionError(null);
-      } catch (error) {
-        if (shouldResetFirebaseSession(error) && firebaseAuth?.currentUser) {
-          await signOut(firebaseAuth).catch(() => {});
-        }
-
-        clearSessionToken();
-        setUser(null);
-        setSessionSyncing(false);
-        setSessionError(
-          getAuthErrorMessage(error, 'Failed to sync backend session.')
-        );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      void refreshUser();
     });
 
     return () => {
       cancelled = true;
-      unsubscribe();
+      data.subscription.unsubscribe();
     };
   }, []);
 
@@ -188,17 +127,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       sessionSyncing,
       isAdmin: canAccessDashboard(user?.role),
       sessionError,
+      refreshUser,
       login: () => {
         window.location.assign('/login');
       },
       logout: async () => {
         clearSessionToken();
+        await supabase.auth.signOut().catch(() => {});
         setUser(null);
-
-        if (firebaseAuth) {
-          await signOut(firebaseAuth).catch(() => {});
-        }
-
         window.location.assign('/');
       },
     }),

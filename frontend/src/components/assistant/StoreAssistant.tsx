@@ -22,8 +22,8 @@ type ChatMessage = {
   query?: string;
 };
 
-const BRAND_TITLE = import.meta.env.VITE_APP_TITLE?.trim() || 'Simba Supermarket';
-const BRAND_LOGO_URL = import.meta.env.VITE_APP_LOGO_URL?.trim() || '/android-chrome-192x192.png';
+const BRAND_TITLE = process.env.NEXT_PUBLIC_APP_TITLE?.trim() || 'Simba Supermarket';
+const BRAND_LOGO_URL = process.env.NEXT_PUBLIC_APP_LOGO_URL?.trim() || '/android-chrome-192x192.png';
 const GREETING_STORAGE_KEY = 'simba_store_assistant_greeted_v1';
 
 function createId(prefix: string): string {

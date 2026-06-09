@@ -1,4 +1,3 @@
-import { getAPIBaseURL } from './config';
 import type { Product } from './types';
 
 export type ConversationalSearchResult = {
@@ -10,10 +9,12 @@ export type ConversationalSearchResult = {
 
 const DEFAULT_LIMIT = 8;
 const MIN_TEXT_SCORE = 2;
+const DEAL_TERMS = new Set(['deal', 'deals', 'discount', 'discounts', 'discounted', 'promo', 'promos', 'sale', 'sales']);
 const INTENT_HINTS: Record<string, string[]> = {
   breakfast: ['milk', 'bread', 'eggs', 'tea', 'coffee', 'cereal', 'oats', 'juice', 'jam', 'butter'],
-  'fresh milk': ['milk', 'dairy', 'yogurt'],
-  milk: ['milk', 'dairy', 'yogurt'],
+  dairy: ['milk', 'yogurt', 'cheese'],
+  'fresh milk': ['milk'],
+  milk: ['milk'],
   tea: ['tea', 'milk', 'sugar', 'biscuits'],
   coffee: ['coffee', 'milk', 'sugar', 'biscuits'],
   snack: ['biscuits', 'crisps', 'juice', 'soda', 'chocolate'],
@@ -25,22 +26,49 @@ const STOP_WORDS = new Set([
   'a',
   'an',
   'any',
+  'are',
+  'available',
+  'best',
+  'buy',
+  'can',
+  'catalog',
+  'catalogue',
   'do',
   'for',
+  'from',
+  'get',
   'have',
   'i',
   "i'm",
   'im',
+  'in',
+  'item',
+  'items',
+  'looking',
   'me',
   'need',
+  'on',
+  'option',
+  'options',
+  'our',
+  'product',
+  'products',
+  'related',
+  'result',
+  'results',
   'show',
+  'simba',
   'something',
+  'store',
+  'supermarket',
   'the',
+  'to',
   'please',
   'find',
   'search',
   'want',
   'with',
+  'your',
   'you',
 ]);
 
@@ -63,9 +91,7 @@ function normalizeStringList(value: unknown): string[] {
 
 function expandQueryTerms(query: string): string[] {
   const normalized = query.trim().toLowerCase();
-  const baseTerms = normalized
-    .split(/\s+/)
-    .filter((term) => Boolean(term) && term.length > 2 && !STOP_WORDS.has(term));
+  const baseTerms = getBaseQueryTerms(query);
   const expanded = [...baseTerms];
 
   Object.entries(INTENT_HINTS).forEach(([phrase, hints]) => {
@@ -75,6 +101,18 @@ function expandQueryTerms(query: string): string[] {
   });
 
   return Array.from(new Set(expanded));
+}
+
+function getBaseQueryTerms(query: string): string[] {
+  return query
+    .trim()
+    .toLowerCase()
+    .match(/[a-z0-9]+/g)
+    ?.filter((term) => term.length > 2 && !STOP_WORDS.has(term)) || [];
+}
+
+function hasSpecificProductIntent(query: string): boolean {
+  return getBaseQueryTerms(query).some((term) => !DEAL_TERMS.has(term));
 }
 
 function buildProductHaystack(product: Product): string {
@@ -135,7 +173,8 @@ function scoreProduct(query: string, product: Product): number {
   }
 
   if (textScore < MIN_TEXT_SCORE) {
-    if (!isDealIntent(query) || !((product.discount || 0) > 0 || product.on_sale)) {
+    const isGenericDealQuery = isDealIntent(query) && !hasSpecificProductIntent(query);
+    if (!isGenericDealQuery || !((product.discount || 0) > 0 || product.on_sale)) {
       return 0;
     }
   }
@@ -147,6 +186,10 @@ function scoreProduct(query: string, product: Product): number {
     + (product.best_seller ? 1 : 0);
 
   return textScore + qualityScore;
+}
+
+export function isProductRelevantToQuery(query: string, product: Product): boolean {
+  return scoreProduct(query, product) > 0;
 }
 
 export function buildLocalConversationalMatches(
@@ -209,7 +252,7 @@ export async function runConversationalSearch(
   const productMap = new Map(products.map((product) => [product.id, product]));
 
   try {
-    const response = await fetch(`${getAPIBaseURL()}/api/v1/catalog-assistant/search`, {
+    const response = await fetch('/api/catalog-assistant/search', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -225,19 +268,25 @@ export async function runConversationalSearch(
     }
 
     const data = await response.json();
-    const matchedProducts = Array.isArray(data?.product_ids)
-      ? data.product_ids
+    const rawProductIds = Array.isArray(data?.product_ids) ? data.product_ids : [];
+    const matchedProducts = rawProductIds.length > 0
+      ? rawProductIds
           .map((id: unknown) => {
             const numericId = typeof id === 'number' ? id : Number(id);
             return Number.isFinite(numericId) ? productMap.get(numericId) || null : null;
           })
           .filter((product: Product | null): product is Product => Boolean(product))
+          .filter((product: Product) => isProductRelevantToQuery(query, product))
       : [];
+    const acceptedEveryAiProduct = matchedProducts.length === rawProductIds.length;
+    const message = acceptedEveryAiProduct && typeof data?.message === 'string' && data.message.trim()
+      ? data.message.trim()
+      : matchedProducts.length > 0
+        ? `I found ${matchedProducts.length} Simba products related to "${query}".`
+        : localResult.message;
 
     return {
-      message: typeof data?.message === 'string' && data.message.trim()
-        ? data.message.trim()
-        : localResult.message,
+      message,
       products: matchedProducts.length > 0 ? matchedProducts : localResult.products,
       productIds: matchedProducts.length > 0
         ? matchedProducts.map((product) => product.id)

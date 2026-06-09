@@ -16,7 +16,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 
-const BRAND_TITLE = import.meta.env.VITE_APP_TITLE?.trim() || 'Simba Supermarket';
+const BRAND_TITLE = process.env.NEXT_PUBLIC_APP_TITLE?.trim() || 'Simba Supermarket';
 const BRAND_LOGO_URL = '/android-chrome-192x192.png';
 
 const Header: React.FC = () => {

@@ -1,5 +1,6 @@
 backend/.env
 frontend/.env
+supabase/.temp/
 .venv/
 backend/.venv/
 *.db
@@ -7,6 +8,7 @@ local.db
 backend/local.db
 backend/logs/
 logs/
+frontend/next-dev*.log
 .history/
 backend/__pycache__/
 backend/**/*.pyc
@@ -14,5 +16,10 @@ backend/**/__pycache__/
 backend/node_modules/
 frontend/node_modules/
 frontend/dist/
+frontend/.next/
+frontend/.env.local
+.next/
+.env.local
+supabase/.branches/
 dist/
 backend/*firebase-adminsdk*.json

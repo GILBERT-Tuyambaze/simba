@@ -1,5 +1,4 @@
-import { getAPIBaseURL } from './config';
-import { getStoredSessionToken } from './auth';
+import { supabase } from './supabase';
 
 export type BranchReviewSummary = {
   branch: string;
@@ -9,15 +8,19 @@ export type BranchReviewSummary = {
 };
 
 export async function fetchBranchReviewSummaries(): Promise<BranchReviewSummary[]> {
-  const token = getStoredSessionToken();
-  const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/entities/orders/branch-summary`, {
-    headers,
-  });
-  if (!response.ok) {
-    throw new Error(`Request failed (${response.status})`);
+  const { data, error } = await supabase
+    .from('branch_review_summary')
+    .select('*')
+    .order('branch', { ascending: true });
+
+  if (error) {
+    throw error;
   }
 
-  const data = (await response.json()) as { items?: BranchReviewSummary[] };
-  return data.items || [];
+  return (data || []).map((item: any) => ({
+    branch: item.branch,
+    rating: Number(item.rating || 0),
+    review_count: Number(item.review_count || 0),
+    recent_orders: Number(item.recent_orders || 0),
+  }));
 }

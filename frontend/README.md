@@ -1,78 +1,70 @@
-# Shadcn-UI Template Usage Instructions
+# Simba Frontend
 
-## technology stack
+Simba now runs as a Next.js App Router application deployed on Vercel.
 
-This project is built with:
+## Stack
 
-- Vite
-- TypeScript
+- Next.js App Router
 - React
-- shadcn-ui
-- Tailwind CSS
+- Tailwind CSS and shadcn/ui
+- Supabase Auth
+- Supabase Postgres with RLS
+- Supabase Storage
+- Vercel Route Handlers for Stripe, AI catalog search, invitations, and analytics
 
-All shadcn/ui components have been downloaded under `@/components/ui`.
+## Required Environment
 
-## File Structure
-
-- `index.html` - HTML entry point
-- `vite.config.ts` - Vite configuration file
-- `tailwind.config.ts` - Tailwind CSS configuration file
-- `package.json` - NPM dependencies and scripts
-- `src/main.tsx` - Project entry point
-- `src/App.tsx` - Router component (imports pages and sets up routes)
-- `src/pages/Index.tsx` - Main page entry point (modify this file to build your UI)
-- `src/index.css` - Existing CSS configuration
-
-## Components
-
-- All shadcn/ui components are pre-downloaded and available at `@/components/ui`
-
-## Styling
-
-- Add global styles to `src/index.css` or create new CSS files as needed
-- Use Tailwind classes for styling components
-
-## Development
-
-- Import components from `@/components/ui` in your React components
-- Customize the UI by modifying the Tailwind configuration
-- Local backend env lives in `backend/.env`
-- Local frontend env lives in `frontend/.env`
-- Example frontend env is in `frontend/.env.example`
-
-## Note
-
-The `@/` path alias points to the `src/` directory
-
-# Commands
-
-**Install Dependencies**
+Create `frontend/.env.local` locally and configure the same values in Vercel:
 
 ```shell
-pnpm i
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_APP_TITLE=Simba Supermarket
+NEXT_PUBLIC_APP_DESCRIPTION=Simba Supermarket - groceries, drinks, home essentials, and delivery in Kigali.
+NEXT_PUBLIC_APP_LOGO_URL=/android-chrome-192x192.png
+
+SUPABASE_SERVICE_ROLE_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+GROQ_API_KEY=
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
-**Start Preview**
+`NEXT_PUBLIC_SUPABASE_URL` must be the Supabase project API URL, for example:
+
+```text
+https://<project-ref>.supabase.co
+```
+
+## Commands
 
 ```shell
-pnpm run dev
+npm install
+npm run dev
+npm run build
+npm run preview
 ```
 
-**Start Backend**
+## Supabase
+
+Apply migrations from the repository root:
 
 ```shell
-npm run backend:dev
+supabase db push
 ```
 
-**Start Frontend + Backend**
+Seed products from the existing catalog JSON:
 
 ```shell
-npm run dev:full
+npm run supabase:seed:products
 ```
 
-**To build**
+Validate the live Supabase schema after migration:
 
 ```shell
-pnpm run build
+npm run supabase:validate
 ```
 
+The app no longer requires a dedicated backend server.

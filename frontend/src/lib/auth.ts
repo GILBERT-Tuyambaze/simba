@@ -1,10 +1,13 @@
-import { getAPIBaseURL } from './config';
+import { supabase } from './supabase';
+import { getRelationName } from './supabase-mappers';
+import { normalizeStoreRole } from './store-roles';
 
 export type AuthUser = {
   id: string;
   email: string;
   name?: string | null;
   role: string;
+  default_branch?: string | null;
   last_login?: string | null;
 };
 
@@ -15,10 +18,6 @@ export type TokenExchangeResponse = {
 };
 
 const TOKEN_KEY = 'simba_auth_token';
-
-function getBaseURL() {
-  return getAPIBaseURL();
-}
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) {
@@ -65,72 +64,44 @@ export function clearSessionToken(): void {
   }
 }
 
-export async function exchangeFirebaseToken(idToken: string): Promise<TokenExchangeResponse> {
-  const response = await fetch(`${getBaseURL()}/api/v1/auth/token/exchange`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ id_token: idToken }),
-  });
-
-  if (!response.ok) {
-    const detail = await readErrorDetail(response);
-    if (response.status === 503) {
-      throw new Error(
-        detail ||
-          'The live authentication service is temporarily unavailable. The backend Firebase Admin configuration may be missing or the server may still be waking up.'
-      );
-    }
-    if (detail?.includes('Firebase service account file was not found')) {
-      throw new Error(
-        'Sign-in is blocked because the backend Firebase admin key is missing. Add the Firebase service-account JSON in the backend configuration or backend folder, then try again.'
-      );
-    }
-    throw new Error(
-      detail || `Failed to exchange Firebase token (${response.status})`
-    );
-  }
-
-  return response.json();
-}
-
-export async function getCurrentUser(token: string): Promise<AuthUser | null> {
-  const response = await fetch(`${getBaseURL()}/api/v1/auth/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (response.status === 401) {
+export async function getCurrentUser(): Promise<AuthUser | null> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) {
     return null;
   }
 
-  if (!response.ok) {
-    const detail = await readErrorDetail(response);
-    throw new Error(detail || 'Failed to load current user');
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role, display_name, email, branches:default_branch_id(name)')
+    .eq('user_id', authData.user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    throw profileError;
   }
 
-  return response.json();
+  return {
+    id: authData.user.id,
+    email: authData.user.email || profile?.email || '',
+    name: profile?.display_name || authData.user.user_metadata?.name || null,
+    role: normalizeStoreRole(profile?.role),
+    default_branch: getRelationName(profile?.branches) || null,
+    last_login: authData.user.last_sign_in_at || null,
+  };
 }
 
 export function getAuthErrorMessage(error: unknown, fallback = 'Authentication failed'): string {
   const message = getErrorMessage(error, fallback);
   const lowered = message.toLowerCase();
 
-  // Preserve backend auth diagnostics instead of collapsing them into
+  // Preserve auth diagnostics instead of collapsing them into
   // a generic credential error.
   if (
-    lowered.includes('invalid firebase token') ||
-    lowered.includes('firebase token project mismatch') ||
-    lowered.includes('firebase token issuer mismatch') ||
+    lowered.includes('invalid supabase token') ||
     lowered.includes('token used too early') ||
-    lowered.includes('backend clock') ||
+    lowered.includes('auth clock') ||
     lowered.includes('computer clock') ||
-    lowered.includes('backend firebase admin key is missing') ||
-    lowered.includes('firebase service account file was not found') ||
-    lowered.includes('firebase authentication is not configured') ||
-    lowered.includes('unable to initialize firebase authentication') ||
+    lowered.includes('supabase auth') ||
     lowered.includes('temporarily unavailable')
   ) {
     return message;
@@ -138,7 +109,7 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Authentication f
 
   if (
     lowered.includes('auth/') ||
-    lowered.includes('firebase') ||
+    lowered.includes('supabase') ||
     lowered.includes('credential') ||
     lowered.includes('password')
   ) {
@@ -146,24 +117,4 @@ export function getAuthErrorMessage(error: unknown, fallback = 'Authentication f
   }
 
   return message;
-}
-
-export function shouldResetFirebaseSession(error: unknown): boolean {
-  const message = getErrorMessage(error, '').toLowerCase();
-  return (
-    message.includes('firebase token project mismatch') ||
-    message.includes('firebase token issuer mismatch') ||
-    message.includes('invalid firebase token for project')
-  );
-}
-
-export function shouldRetryFirebaseTokenExchange(error: unknown): boolean {
-  const message = getErrorMessage(error, '').toLowerCase();
-  return (
-    (message.includes('invalid firebase token') && !shouldResetFirebaseSession(error)) ||
-    message.includes('token used too early') ||
-    message.includes('issued slightly in the future') ||
-    message.includes('token has expired') ||
-    message.includes('token has been revoked')
-  );
 }

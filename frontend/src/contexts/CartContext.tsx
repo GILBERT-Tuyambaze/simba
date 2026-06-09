@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { BRANCHES, CartItem } from '@/lib/types';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { BRANCHES, CartItem, type Branch } from '@/lib/types';
 import { toast } from 'sonner';
 
 interface CartContextValue {
   items: CartItem[];
+  hydrated: boolean;
   branch: string;
   setBranch: (b: string) => void;
   addItem: (item: Omit<CartItem, 'quantity'>, qty?: number) => void;
@@ -20,16 +21,33 @@ const CartContext = createContext<CartContextValue | null>(null);
 const STORAGE_KEY = 'simba_cart_v1';
 const BRANCH_KEY = 'simba_branch_v1';
 
+const memoryStorage: Storage = {
+  length: 0,
+  clear: () => {},
+  getItem: () => null,
+  key: () => null,
+  removeItem: () => {},
+  setItem: () => {},
+};
+
 function getStorage(): Storage {
+  if (typeof window === 'undefined') {
+    return memoryStorage;
+  }
+
   try {
     // Test if localStorage is available
     const testKey = '__storage_test__';
-    localStorage.setItem(testKey, 'test');
-    localStorage.removeItem(testKey);
-    return localStorage;
+    window.localStorage.setItem(testKey, 'test');
+    window.localStorage.removeItem(testKey);
+    return window.localStorage;
   } catch {
     // Fallback to sessionStorage if localStorage is not available
-    return sessionStorage;
+    try {
+      return window.sessionStorage;
+    } catch {
+      return memoryStorage;
+    }
   }
 }
 
@@ -42,10 +60,15 @@ function clampQuantity(quantity: number, maxQuantity?: number): number {
   return Math.min(nextQuantity, Math.floor(maxQuantity));
 }
 
+function isBranch(value: string): value is Branch {
+  return (BRANCHES as readonly string[]).includes(value);
+}
+
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [branch, setBranchState] = useState<string>(BRANCHES[0]);
-  const storage = getStorage();
+  const storage = useMemo(() => getStorage(), []);
 
   // Load from storage
   useEffect(() => {
@@ -58,7 +81,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
       const b = storage.getItem(BRANCH_KEY);
-      if (b && BRANCHES.includes(b)) {
+      if (b && isBranch(b)) {
         setBranchState(b);
       }
     } catch (error) {
@@ -66,26 +89,36 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear corrupted data
       storage.removeItem(STORAGE_KEY);
       storage.removeItem(BRANCH_KEY);
+    } finally {
+      setHydrated(true);
     }
   }, [storage]);
 
   // Persist
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
     try {
       storage.setItem(STORAGE_KEY, JSON.stringify(items));
     } catch (error) {
       console.warn('Failed to save cart to storage:', error);
     }
-  }, [items, storage]);
+  }, [hydrated, items, storage]);
 
   // Persist branch
   useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
     try {
       storage.setItem(BRANCH_KEY, branch);
     } catch (error) {
       console.warn('Failed to save branch to storage:', error);
     }
-  }, [branch, storage]);
+  }, [branch, hydrated, storage]);
 
   const setBranch = useCallback((b: string) => {
     setBranchState(b);
@@ -163,27 +196,32 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const syncStockLimit = useCallback((productId: number, maxQuantity?: number) => {
     setItems((prev) => {
-      const next = prev
-        .map((item) => {
-          if (item.product_id !== productId) {
+      let changed = false;
+      const next = prev.map((item) => {
+        if (item.product_id !== productId) {
+          return item;
+        }
+
+        if (typeof maxQuantity === 'number' && maxQuantity <= 0) {
+          if (item.max_quantity === 0) {
             return item;
           }
+          changed = true;
+          return { ...item, max_quantity: 0 };
+        }
 
-          if (typeof maxQuantity === 'number' && maxQuantity <= 0) {
-            return null;
-          }
+        const safeMax = typeof maxQuantity === 'number' ? maxQuantity : item.max_quantity;
+        const nextQuantity = clampQuantity(item.quantity, safeMax);
 
-          const safeMax = typeof maxQuantity === 'number' ? maxQuantity : item.max_quantity;
-          const nextQuantity = clampQuantity(item.quantity, safeMax);
-          if (nextQuantity <= 0) {
-            return null;
-          }
+        if (item.quantity === nextQuantity && item.max_quantity === safeMax) {
+          return item;
+        }
 
-          return { ...item, quantity: nextQuantity, max_quantity: safeMax };
-        })
-        .filter(Boolean) as CartItem[];
+        changed = true;
+        return { ...item, quantity: nextQuantity, max_quantity: safeMax };
+      });
 
-      return next;
+      return changed ? next : prev;
     });
   }, []);
 
@@ -199,7 +237,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <CartContext.Provider
-      value={{ items, branch, setBranch, addItem, updateQty, syncStockLimit, removeItem, clear, totalItems, subtotal }}
+      value={{ items, hydrated, branch, setBranch, addItem, updateQty, syncStockLimit, removeItem, clear, totalItems, subtotal }}
     >
       {children}
     </CartContext.Provider>

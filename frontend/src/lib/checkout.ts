@@ -1,5 +1,5 @@
-import { getAPIBaseURL } from './config';
-import { getStoredSessionToken } from './auth';
+import { mapSupabaseOrder } from './supabase-mappers';
+import { supabase } from './supabase';
 import type { CartItem, Order } from './types';
 
 export type CheckoutDeliveryMethod = 'delivery' | 'pickup';
@@ -56,15 +56,15 @@ export type VerifyPaymentResponse = {
 
 export type CancelOrderResponse = Order;
 
-function getHeaders(): HeadersInit {
-  const token = getStoredSessionToken();
-  if (!token) {
+async function getHeaders(): Promise<HeadersInit> {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session?.access_token) {
     throw new Error('You must be signed in to checkout.');
   }
 
   return {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${data.session.access_token}`,
   };
 }
 
@@ -93,9 +93,9 @@ async function parseJson<T>(response: Response): Promise<T> {
 export async function createPaymentSession(
   payload: CreatePaymentSessionRequest
 ): Promise<CreatePaymentSessionResponse> {
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/payment/create_payment_session`, {
+  const response = await fetch('/api/payment/create-session', {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify(payload),
   });
 
@@ -105,9 +105,9 @@ export async function createPaymentSession(
 export async function verifyPaymentSession(
   sessionId: string
 ): Promise<VerifyPaymentResponse> {
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/payment/verify_payment`, {
+  const response = await fetch('/api/payment/verify', {
     method: 'POST',
-    headers: getHeaders(),
+    headers: await getHeaders(),
     body: JSON.stringify({ session_id: sessionId }),
   });
 
@@ -115,13 +115,16 @@ export async function verifyPaymentSession(
 }
 
 export async function cancelOrder(orderId: number): Promise<CancelOrderResponse> {
-  const response = await fetch(`${getAPIBaseURL()}/api/v1/entities/orders/${orderId}`, {
-    method: 'PUT',
-    headers: getHeaders(),
-    body: JSON.stringify({
-      status: 'cancelled',
-    }),
-  });
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status: 'cancelled' })
+    .eq('id', orderId)
+    .select('*, branches:branch_id(name), assigned_branch:assigned_branch_id(name), review_branch:review_branch_id(name), order_items(*)')
+    .single();
 
-  return parseJson<CancelOrderResponse>(response);
+  if (error) {
+    throw error;
+  }
+
+  return mapSupabaseOrder(data);
 }
