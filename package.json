@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm --prefix frontend run dev --",
-    "build": "npm --prefix frontend run build",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview",
     "supabase:db:push": "supabase db push --db-url \"$DATABASE_URL\"",
