@@ -295,11 +295,12 @@ export default function LoginPage() {
 
     try {
       if (mode === 'signup') {
+        const trimmedEmail = email.trim();
         const { error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: trimmedEmail,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/verify-email`,
+            emailRedirectTo: `${window.location.origin}/verify-email?email=${encodeURIComponent(trimmedEmail)}`,
           },
         });
         if (signUpError) {

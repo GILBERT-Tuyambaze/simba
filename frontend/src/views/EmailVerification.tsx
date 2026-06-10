@@ -21,11 +21,13 @@ export default function EmailVerificationPage() {
 
   // Check if we have an email confirmation token
   const token = searchParams.get('token');
+  const tokenHash = searchParams.get('token_hash');
+  const email = searchParams.get('email');
   const type = searchParams.get('type');
 
   useEffect(() => {
     const verifyEmail = async () => {
-      if (type !== 'email' || !token) {
+      if (type !== 'email' || (!token && !tokenHash)) {
         setError('Invalid email verification link. Please check your email for the correct link.');
         setAlertOpen(true);
         setLoading(false);
@@ -33,11 +35,21 @@ export default function EmailVerificationPage() {
       }
 
       try {
-        // Verify the email token
-        const { data, error: verifyError } = await supabase.auth.verifyOtp({
-          token: token,
-          type: 'email',
-        });
+        // Verify the email token or token hash
+        const verifyArgs = tokenHash
+          ? { token_hash: tokenHash, type: 'email' }
+          : email
+          ? { email, token: token!, type: 'email' }
+          : null;
+
+        if (!verifyArgs) {
+          setError('Email is required to verify this confirmation link.');
+          setAlertOpen(true);
+          setLoading(false);
+          return;
+        }
+
+        const { data, error: verifyError } = await supabase.auth.verifyOtp(verifyArgs);
 
         if (verifyError || !data.user) {
           throw verifyError || new Error('Failed to verify email.');
@@ -60,7 +72,7 @@ export default function EmailVerificationPage() {
     };
 
     verifyEmail();
-  }, [token, type, navigate]);
+  }, [email, navigate, token, tokenHash, type]);
 
   if (loading) {
     return (
