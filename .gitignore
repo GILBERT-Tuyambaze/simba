@@ -23,3 +23,12 @@ frontend/.env.local
 supabase/.branches/
 dist/
 backend/*firebase-adminsdk*.json
+node_modules/
+dist/
+.history/
+node_modules/
+*.tsbuildinfo
+.env
+.next/
+dist/
+build/

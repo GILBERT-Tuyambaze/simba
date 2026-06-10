@@ -1,6 +1,6 @@
 import { resolveBranchId } from './branches';
 import { mapSupabaseOrder, mapSupabaseProfile, parseAddresses } from './supabase-mappers';
-import { supabase } from './supabase';
+import { getSupabaseUser, supabase } from './supabase';
 import type { CheckoutPaymentMethod } from './checkout';
 import type { Order, UserProfile } from './types';
 
@@ -27,11 +27,11 @@ const ORDER_SELECT = `
 `;
 
 async function requireUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
+  const { user, error } = await getSupabaseUser();
+  if (error || !user) {
     throw new Error('You must be signed in.');
   }
-  return data.user.id;
+  return user.id;
 }
 
 export async function fetchAccountOrders(): Promise<Order[]> {

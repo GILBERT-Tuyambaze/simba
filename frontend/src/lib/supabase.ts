@@ -41,8 +41,73 @@ export const supabase = createClient(supabaseUrl || 'http://localhost:54321', su
   },
 });
 
+export async function getSupabaseUser(): Promise<{ user: User | null; error: Error | null }> {
+  if (!isSupabaseConfigured()) {
+    const error = new Error(
+      'Supabase is not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+    );
+    console.error('[Supabase] auth.getUser aborted', {
+      supabaseUrl,
+      anonKeyConfigured: Boolean(supabaseAnonKey),
+      error: error.message,
+    });
+    return { user: null, error };
+  }
+
+  const authEndpoint = `${supabaseUrl}/auth/v1/user`;
+  try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.warn('[Supabase] auth.getSession warning', {
+        authEndpoint,
+        supabaseUrl,
+        anonKeyConfigured: Boolean(supabaseAnonKey),
+        message: sessionError.message,
+        rawError: sessionError,
+      });
+    }
+
+    const sessionUser = sessionData?.session?.user ?? null;
+    if (sessionUser) {
+      return { user: sessionUser, error: null };
+    }
+
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      console.error('[Supabase] auth.getUser failed', {
+        authEndpoint,
+        supabaseUrl,
+        anonKeyConfigured: Boolean(supabaseAnonKey),
+        message: error.message,
+        rawError: error,
+      });
+      return { user: data?.user ?? null, error };
+    }
+
+    if (!data?.user) {
+      console.warn('[Supabase] auth.getUser returned no user', {
+        authEndpoint,
+        supabaseUrl,
+        anonKeyConfigured: Boolean(supabaseAnonKey),
+      });
+      return { user: null, error: null };
+    }
+
+    return { user: data.user, error: null };
+  } catch (unexpected) {
+    console.error('[Supabase] auth.getUser threw unexpected error', {
+      authEndpoint,
+      supabaseUrl,
+      anonKeyConfigured: Boolean(supabaseAnonKey),
+      error: unexpected,
+    });
+    throw unexpected;
+  }
+}
+
 export async function getCurrentSupabaseSession(): Promise<Session | null> {
   if (!isSupabaseConfigured()) {
+    console.warn('[Supabase] session fetch skipped because Supabase is not configured');
     return null;
   }
 

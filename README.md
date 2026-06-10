@@ -28,10 +28,12 @@ http://localhost:3000
 Schema and RLS live in `supabase/migrations`.
 
 ```shell
-supabase db push --db-url "$DATABASE_URL"
+npm run supabase:db:push
 npm run supabase:seed:products
 npm run supabase:validate
 ```
+
+> If checkout fails because `place_order_with_inventory` is missing, make sure the live Supabase schema is pushed to the project referenced by `DATABASE_URL`.
 
 Set `NEXT_PUBLIC_SUPABASE_URL` to the project API URL format:
 

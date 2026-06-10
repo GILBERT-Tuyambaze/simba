@@ -1,8 +1,18 @@
 import { createHash } from 'crypto';
 import { NextRequest } from 'next/server';
 import { getAdminSupabase, json } from '../../_lib/supabase-server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, {
+    route: '/api/analytics/visit',
+    maxRequests: 30,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.allowed) {
+    return json({ detail: 'Rate limit exceeded.' }, 429);
+  }
+
   try {
     const body = await request.json();
     const rawClientKey = String(body.client_key || '').trim();

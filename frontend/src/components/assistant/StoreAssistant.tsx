@@ -3,11 +3,17 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowUp, MessageCircle, Sparkles, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProducts } from '@/hooks/useProducts';
+import { useCart } from '@/contexts/CartContext';
+import { buildShopSearchUrl } from '@/lib/conversational-search';
 import {
-  buildLocalConversationalResult,
-  buildShopSearchUrl,
-  runConversationalSearch,
-} from '@/lib/conversational-search';
+  appendSimbaMessage,
+  buildLocalConversationalMatches,
+  buildSearchPlan,
+  composeSimbaResponse,
+  createSimbaContext,
+  runSimbaSearch,
+  type SimbaContext,
+} from '@/lib/simba-intelligence';
 import { useI18n } from '@/lib/i18n';
 import { formatRWF, type Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -45,7 +51,22 @@ export default function StoreAssistant() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { products, loading: productsLoading } = useProducts();
+  const { branch } = useCart();
   const { t } = useI18n();
+  const [simbaContext, setSimbaContext] = useState<SimbaContext>(() =>
+    createSimbaContext({
+      branch,
+      user: user
+        ? {
+            id: user.id,
+            email: user.email || undefined,
+            name: user.name || undefined,
+            role: user.role,
+            default_branch: user.default_branch || null,
+          }
+        : undefined,
+    })
+  );
   const [isOpen, setIsOpen] = useState(false);
   const [showGreeting, setShowGreeting] = useState(false);
   const [draft, setDraft] = useState('');
@@ -56,6 +77,24 @@ export default function StoreAssistant() {
 
   const hidden = location.pathname.startsWith('/admin');
   const displayName = getDisplayName(user?.name, user?.email);
+
+  useEffect(() => {
+    setSimbaContext((current) =>
+      createSimbaContext({
+        ...current,
+        branch,
+        user: user
+          ? {
+              id: user.id,
+              email: user.email || undefined,
+              name: user.name || undefined,
+              role: user.role,
+              default_branch: user.default_branch || null,
+            }
+          : undefined,
+      })
+    );
+  }, [branch, user]);
   const welcomeText = displayName
     ? `${t('assistant.welcomeBack', 'Hi')} ${displayName}. ${t('assistant.welcomeBody', 'Ask me for fresh milk, breakfast ideas, deals, or products for your cart.')}`
     : t('assistant.welcome', 'Hi. Ask me for fresh milk, breakfast ideas, deals, or products for your cart.');
@@ -144,17 +183,17 @@ export default function StoreAssistant() {
       return;
     }
 
+    const userMessage: ChatMessage = {
+      id: createId('user'),
+      role: 'user',
+      text: query,
+    };
+
     setDraft('');
     setIsOpen(true);
     setShowGreeting(false);
-    setMessages((current) => [
-      ...current,
-      {
-        id: createId('user'),
-        role: 'user',
-        text: query,
-      },
-    ]);
+    setMessages((current) => [...current, userMessage]);
+    setSimbaContext((current) => appendSimbaMessage(current, userMessage));
 
     if (productsLoading || products.length === 0) {
       setMessages((current) => [
@@ -170,27 +209,33 @@ export default function StoreAssistant() {
 
     setIsReplying(true);
     const assistantMessageId = createId('assistant');
-    const localResult = buildLocalConversationalResult(query, products, 4);
+    const plan = buildSearchPlan(query, branch);
+    const localResponse = composeSimbaResponse(
+      plan,
+      buildLocalConversationalMatches(query, products, 4, branch),
+      'local'
+    );
+
     const updateShopResults = (resultProducts: Product[], replace = false) => {
       if (location.pathname === '/shop') {
         navigate(buildShopSearchUrl(query, resultProducts), { replace });
       }
     };
 
-    setMessages((current) => [
-      ...current,
-      {
-        id: assistantMessageId,
-        role: 'assistant',
-        text: localResult.message || t('assistant.defaultReply', 'Here are the closest Simba matches I found.'),
-        products: localResult.products.slice(0, 4),
-        query,
-      },
-    ]);
-    updateShopResults(localResult.products.slice(0, 4));
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      text: localResponse.message || t('assistant.defaultReply', 'Here are the closest Simba matches I found.'),
+      products: localResponse.products.slice(0, 4),
+      query,
+    };
+
+    setMessages((current) => [...current, assistantMessage]);
+    setSimbaContext((current) => appendSimbaMessage(current, assistantMessage));
+    updateShopResults(localResponse.products.slice(0, 4));
 
     try {
-      const result = await runConversationalSearch(query, products, 4);
+      const result = await runSimbaSearch(query, products, 4, branch);
       const resultProducts = result.products.slice(0, 4);
       setMessages((current) =>
         current.map((message) =>
@@ -205,7 +250,7 @@ export default function StoreAssistant() {
       );
       updateShopResults(resultProducts, true);
     } catch {
-      if (localResult.products.length === 0) {
+      if (localResponse.products.length === 0) {
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantMessageId

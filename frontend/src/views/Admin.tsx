@@ -247,7 +247,7 @@ function getPaymentLabel(value?: string | null): string {
 function getPaymentTone(value?: string | null): string {
   switch (normalizePaymentMethod(value)) {
     case 'mtn_momo':
-      return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100';
+      return 'border-orange-400/30 bg-orange-500/10 text-orange-100';
     case 'airtel_money':
       return 'border-orange-400/30 bg-orange-500/10 text-orange-100';
     case 'cash_on_delivery':
@@ -314,7 +314,7 @@ function getStatusTone(value?: string | null): string {
     case 'shipped':
       return 'border-cyan-400/30 bg-cyan-500/10 text-cyan-100';
     case 'delivered':
-      return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100';
+      return 'border-orange-400/30 bg-orange-500/10 text-orange-100';
     case 'cancelled':
       return 'border-destructive/30 bg-destructive/10 text-destructive';
     case 'other':
@@ -332,7 +332,7 @@ function getPermissionTone(value: string): string {
     case 'assigned':
       return 'border-amber-400/30 bg-amber-500/10 text-amber-100';
     case 'own':
-      return 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100';
+      return 'border-orange-400/30 bg-orange-500/10 text-orange-100';
     case 'yes':
       return 'border-primary/30 bg-primary/10 text-primary';
     case '-':
@@ -1616,7 +1616,7 @@ export default function Admin() {
                     label: 'Delivered',
                     value: deliveredOrders.length,
                     icon: PackageCheck,
-                    tone: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100',
+                    tone: 'border-orange-400/30 bg-orange-500/10 text-orange-100',
                     sub: `${fulfillmentRate}% fulfilled`,
                   },
                 ].map((item) => {

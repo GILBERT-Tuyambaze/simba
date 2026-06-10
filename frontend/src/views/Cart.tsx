@@ -1,5 +1,4 @@
-import React from 'react';
-import { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Minus, Plus, Trash2, ShoppingCart, ArrowRight } from 'lucide-react';
 import Header from '@/components/layout/Header';
@@ -12,7 +11,8 @@ import { useI18n } from '@/lib/i18n';
 
 const Cart: React.FC = () => {
   const { items, hydrated, updateQty, syncStockLimit, removeItem, subtotal, branch } = useCart();
-  const { products } = useProducts();
+  const productIds = useMemo(() => Array.from(new Set(items.map((item) => item.product_id))), [items]);
+  const { products } = useProducts(productIds.length > 0 ? { ids: productIds, limit: productIds.length } : { limit: 1 });
   const { t } = useI18n();
 
   const shipping = subtotal >= 30000 ? 0 : 2500;

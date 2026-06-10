@@ -33,13 +33,15 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
 
   if (variant === 'list') {
     return (
-      <Link to={`/product/${product.id}`} className="card-industrial flex gap-4 p-3">
-        <div className="w-28 h-28 shrink-0 bg-secondary/50 border border-border overflow-hidden flex items-center justify-center">
+      <div className="card-industrial flex gap-4 p-3">
+        <Link to={`/product/${product.id}`} className="w-28 h-28 shrink-0 bg-secondary/50 border border-border overflow-hidden flex items-center justify-center" aria-label={`View ${product.name}`}>
           <img src={product.image} alt={product.name} className="w-full h-full object-contain" loading="lazy" />
-        </div>
+        </Link>
         <div className="flex-1 min-w-0 flex flex-col">
-          <div className="text-[10px] uppercase text-muted-foreground tracking-wider">{translateCategory(product.category)}</div>
-          <div className="text-sm font-medium line-clamp-2 mt-1">{product.name}</div>
+          <Link to={`/product/${product.id}`} className="block">
+            <div className="text-[10px] uppercase text-muted-foreground tracking-wider">{translateCategory(product.category)}</div>
+            <div className="text-sm font-medium line-clamp-2 mt-1">{product.name}</div>
+          </Link>
           <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
             <Star className="h-3 w-3 fill-accent text-accent" />
             {product.rating} &bull; {product.brand}
@@ -51,17 +53,17 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
               )}
               <div className="text-primary font-semibold crt-glow">{formatRWF(discountedPrice)}</div>
             </div>
-            <button onClick={handleAdd} className="terminal-btn text-[10px] py-1.5 px-2 flex items-center gap-1">
+            <button onClick={handleAdd} className="terminal-btn text-[10px] py-1.5 px-2 flex items-center gap-1 min-h-[36px] min-w-[36px]">
               <ShoppingCart className="h-3 w-3" /> {t('product.addShort')}
             </button>
           </div>
         </div>
-      </Link>
+      </div>
     );
   }
 
   return (
-    <Link to={`/product/${product.id}`} className="card-industrial group flex flex-col relative">
+    <div className="card-industrial group flex flex-col relative">
       {product.discount > 0 && (
         <div className="absolute top-2 left-2 z-10 bg-accent text-accent-foreground text-[10px] font-bold px-1.5 py-0.5 uppercase tracking-wider">
           -{product.discount}%
@@ -72,21 +74,23 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
           {t('assistant.outOfStock')}
         </div>
       )}
-      <div className="aspect-square bg-secondary/30 border-b border-border overflow-hidden relative scanlines">
+      <Link to={`/product/${product.id}`} className="aspect-square bg-secondary/30 border-b border-border overflow-hidden relative scanlines" aria-label={`View ${product.name}`}>
         <img
           src={product.image}
           alt={product.name}
           className="w-full h-full object-contain p-2 transition-transform group-hover:scale-105"
           loading="lazy"
         />
-      </div>
+      </Link>
       <div className="p-3 flex flex-col flex-1">
-        <div className="text-[10px] uppercase text-muted-foreground tracking-wider truncate">
-          {translateCategory(product.category)}
-        </div>
-        <h3 className="text-sm font-medium mt-1 line-clamp-2 min-h-[2.5rem]">
-          {product.name}
-        </h3>
+        <Link to={`/product/${product.id}`} className="block">
+          <div className="text-[10px] uppercase text-muted-foreground tracking-wider truncate">
+            {translateCategory(product.category)}
+          </div>
+          <h3 className="text-sm font-medium mt-1 line-clamp-2 min-h-[2.5rem]">
+            {product.name}
+          </h3>
+        </Link>
         <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
           <Star className="h-3 w-3 fill-accent text-accent" />
           <span>{product.rating}</span>
@@ -108,14 +112,14 @@ const ProductCard: React.FC<Props> = ({ product, variant = 'grid' }) => {
           <button
             onClick={handleAdd}
             disabled={!product.in_stock || maxQuantity <= 0}
-            className="shrink-0 border border-primary/50 bg-primary/10 p-2 hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-40"
+            className="shrink-0 border border-primary/50 bg-primary/10 p-2 hover:bg-primary hover:text-primary-foreground transition-all disabled:opacity-40 min-h-[36px] min-w-[36px]"
             aria-label={t('product.addToCart')}
           >
             <ShoppingCart className="h-4 w-4" />
           </button>
         </div>
       </div>
-    </Link>
+    </div>
   );
 };
 

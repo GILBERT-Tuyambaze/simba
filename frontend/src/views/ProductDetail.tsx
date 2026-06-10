@@ -14,12 +14,12 @@ const ProductDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { product, loading } = useProduct(id);
-  const { products } = useProducts();
+  const { products } = useProducts({ category: product?.category || undefined, limit: 5 });
   const { addItem, branch } = useCart();
   const { t, translateCategory } = useI18n();
   const [qty, setQty] = useState(1);
   const discountedPrice = product ? (product.discount > 0 ? product.price * (1 - product.discount / 100) : product.price) : 0;
-  const related = product ? products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4) : [];
+  const related = product ? products.filter((p) => p.id !== product.id).slice(0, 4) : [];
   const maxQuantity = product ? getProductStockForBranch(product, branch) : 0;
   const safeQty = maxQuantity > 0 ? Math.min(Math.max(qty, 1), maxQuantity) : 0;
 

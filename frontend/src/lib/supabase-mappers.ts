@@ -40,7 +40,11 @@ export function mapSupabaseOrder(row: any): Order {
     customer_name: row.customer_name || '',
     branch: branchName,
     assigned_branch: assignedBranchName,
-    items: row.items || JSON.stringify(items),
+    items: typeof row.items === 'string'
+      ? row.items
+      : row.items
+        ? JSON.stringify(row.items)
+        : JSON.stringify(items),
     subtotal: Number(row.subtotal || 0),
     shipping: Number(row.shipping || 0),
     discount: Number(row.discount || 0),

@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
         pickup_time: body.pickup_time || null,
         assigned_delivery_agent_id: body.delivery_agent_id || null,
         review_branch_id: branch.id,
+        items: JSON.stringify(items),
         timeline: [{ status, label: status.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()), at: new Date().toISOString() }],
       })
       .select()
@@ -214,6 +215,7 @@ export async function POST(request: NextRequest) {
       message: 'Redirecting to Stripe checkout.',
     });
   } catch (error) {
+    console.error('[API create-session] error creating checkout session:', error);
     if (error instanceof Response) return error;
     return json({ detail: error instanceof Error ? error.message : 'Failed to create checkout session.' }, 500);
   }

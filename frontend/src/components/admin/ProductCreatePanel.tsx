@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useEffect } from 'react';
-import { Plus, Save } from 'lucide-react';
+import { Plus, Save, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { createAdminProduct, updateAdminProduct } from '@/lib/admin';
+import { uploadProductImage } from '@/lib/storage';
 import { BRANCHES, type Product } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -175,6 +176,8 @@ export default function ProductCreatePanel({
   const branchLocked = normalizedRole !== 'super_admin';
 
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
   const [form, setForm] = useState(() =>
     editingProduct
       ? createFormFromProduct(editingProduct, defaultBranch)
@@ -191,6 +194,37 @@ export default function ProductCreatePanel({
 
   const updateField = (field: string, value: string | boolean) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Invalid file type. Use JPEG, PNG, WebP, or GIF.');
+      return;
+    }
+
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('File too large. Maximum size is 10MB.');
+      return;
+    }
+
+    setUploading(true);
+    setUploadProgress('Uploading image...');
+    try {
+      const url = await uploadProductImage(file);
+      updateField('image', url);
+      setUploadProgress('');
+      toast.success('Image uploaded successfully.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image.');
+      setUploadProgress('');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -311,7 +345,46 @@ export default function ProductCreatePanel({
             </div>
             <div className="space-y-2">
               <Label htmlFor="product_image">{t('admin.productImageUrl')}</Label>
-              <Input id="product_image" value={form.image} onChange={(event) => updateField('image', event.target.value)} />
+              <div className="flex gap-2">
+                <Input
+                  id="product_image"
+                  value={form.image}
+                  onChange={(event) => updateField('image', event.target.value)}
+                  placeholder="Image URL or upload below"
+                  className="flex-1"
+                />
+                <label className="shrink-0 flex items-center gap-1 border border-border bg-input px-3 py-2 text-xs cursor-pointer hover:border-primary/50 transition-colors min-h-[36px]">
+                  <Upload className="h-3 w-3" />
+                  <span className="hidden sm:inline">Upload</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="sr-only"
+                    onChange={handleImageUpload}
+                    disabled={uploading}
+                  />
+                </label>
+              </div>
+              {uploadProgress && (
+                <div className="text-[10px] uppercase tracking-[0.2em] text-primary">{uploadProgress}</div>
+              )}
+              {form.image && (
+                <div className="relative inline-block border border-border">
+                  <img
+                    src={form.image}
+                    alt="Product preview"
+                    className="h-24 w-24 object-contain bg-secondary/30"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateField('image', '')}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground p-0.5 min-h-[20px] min-w-[20px] flex items-center justify-center"
+                    aria-label="Remove image"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

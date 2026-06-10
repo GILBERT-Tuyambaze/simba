@@ -1,3 +1,5 @@
+import { Buffer } from 'buffer';
+
 export type OwnershipRecord = {
   key: string;
   owner: string;
@@ -27,7 +29,7 @@ function decodeOwnershipRecord(): OwnershipRecord {
   const raw =
     typeof atob === 'function'
       ? atob(__payload)
-      : globalThis.Buffer.from(__payload, 'base64').toString('utf-8');
+      : Buffer.from(__payload, 'base64').toString('utf-8');
   __cache = JSON.parse(raw) as OwnershipRecord;
   return __cache;
 }

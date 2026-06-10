@@ -27,7 +27,7 @@ function discountedPrice(product: Product): number {
 }
 
 export default function Index() {
-  const { products, loading } = useProducts();
+  const { products, loading, total } = useProducts({ limit: 96 });
   const { t, translateCategory } = useI18n();
 
   const categoryStats = useMemo(() => {
@@ -80,7 +80,7 @@ export default function Index() {
     }).slice(0, 4);
   }, [bestSellers, hotDeals, valuePicks]);
 
-  const heroCount = products.length;
+  const heroCount = total || products.length;
   const topDiscount = hotDeals[0]?.discount || 0;
 
   const summaryCards = [

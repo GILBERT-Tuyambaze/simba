@@ -13,6 +13,7 @@ import {
 import {
   ensureUserProfile,
   getProfile,
+  getSupabaseUser,
   isSupabaseConfigured,
   supabase,
 } from '@/lib/supabase';
@@ -36,26 +37,30 @@ async function resolveAuthUser(): Promise<AuthUser | null> {
     return null;
   }
 
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
+  const { user, error } = await getSupabaseUser();
+  if (error || !user) {
     return null;
   }
 
-  const profile = await ensureUserProfile(data.user).catch(async () => {
-    return getProfile(data.user.id);
+  const profile = await ensureUserProfile(user).catch(async () => {
+    return getProfile(user.id);
   });
 
+  const roleSource = profile?.role ??
+    (typeof user.user_metadata?.role === 'string' ? user.user_metadata.role : null) ??
+    (typeof user.app_metadata?.role === 'string' ? user.app_metadata.role : null);
+
   return {
-    id: data.user.id,
-    email: data.user.email || profile?.email || '',
+    id: user.id,
+    email: user.email || profile?.email || '',
     name:
       profile?.display_name ||
-      data.user.user_metadata?.display_name ||
-      data.user.user_metadata?.name ||
+      user.user_metadata?.display_name ||
+      user.user_metadata?.name ||
       null,
-    role: normalizeStoreRole(profile?.role),
+    role: normalizeStoreRole(roleSource),
     default_branch: profile?.default_branch || null,
-    last_login: data.user.last_sign_in_at || null,
+    last_login: user.last_sign_in_at || null,
   };
 }
 
@@ -85,7 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(null);
       setSessionError(getAuthErrorMessage(error, 'Failed to sync Supabase session.'));
     } finally {
-      clearSessionToken();
       setSessionSyncing(false);
       setLoading(false);
     }
@@ -135,7 +139,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         clearSessionToken();
         await supabase.auth.signOut().catch(() => {});
         setUser(null);
-        window.location.assign('/');
       },
     }),
     [loading, sessionError, sessionSyncing, user]

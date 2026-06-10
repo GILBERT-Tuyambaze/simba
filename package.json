@@ -7,7 +7,11 @@
     "build": "npm --prefix frontend run build",
     "lint": "npm --prefix frontend run lint",
     "preview": "npm --prefix frontend run preview",
+    "supabase:db:push": "supabase db push --db-url \"$DATABASE_URL\"",
     "supabase:validate": "node scripts/validate-live-supabase.mjs",
     "supabase:seed:products": "node scripts/seed-products-from-json.mjs"
+  },
+  "devDependencies": {
+    "supabase": "^2.105.0"
   }
 }

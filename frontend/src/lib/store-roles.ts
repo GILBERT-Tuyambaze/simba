@@ -63,8 +63,8 @@ export const STORE_ROLE_CARDS: StoreRoleMeta[] = [
     label: 'Branch staff',
     description: 'Ops + stock ops',
     scope: 'Shelf updates, stock counts, order handling, and local product edits',
-    badgeClass: 'bg-emerald-500/20 text-emerald-100 border-emerald-400/30',
-    panelClass: 'from-emerald-500/20 to-teal-500/20',
+    badgeClass: 'bg-orange-500/20 text-orange-100 border-orange-400/30',
+    panelClass: 'from-orange-500/20 to-amber-500/20',
   },
   {
     key: 'delivery_agent',

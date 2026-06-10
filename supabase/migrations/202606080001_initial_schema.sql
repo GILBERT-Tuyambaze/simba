@@ -157,6 +157,7 @@ create table if not exists public.orders (
   rating integer check (rating >= 1 and rating <= 5),
   review_comment text,
   review_branch_id bigint references public.branches(id) on delete set null,
+  items text not null default '[]',
   timeline jsonb not null default '[]'::jsonb,
   stripe_session_id text unique,
   payment_status text,
@@ -389,6 +390,7 @@ alter table if exists public.orders add column if not exists assigned_delivery_a
 alter table if exists public.orders add column if not exists rating integer;
 alter table if exists public.orders add column if not exists review_comment text;
 alter table if exists public.orders add column if not exists review_branch_id bigint;
+alter table if exists public.orders add column if not exists items text default '[]';
 alter table if exists public.orders add column if not exists timeline jsonb default '[]'::jsonb;
 alter table if exists public.orders add column if not exists stripe_session_id text;
 alter table if exists public.orders add column if not exists payment_status text;

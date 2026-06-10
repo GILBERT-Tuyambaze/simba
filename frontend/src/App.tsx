@@ -14,6 +14,7 @@ import { I18nProvider } from './lib/i18n';
 import Admin from './views/Admin';
 import Account from './views/Account';
 import Checkout from './views/Checkout';
+import EmailVerification from './views/EmailVerification';
 import Login from './views/Login';
 import Index from './views/Index';
 import Legal from './views/Legal';
@@ -23,6 +24,7 @@ import PaymentSuccess from './views/PaymentSuccess';
 import ProductDetail from './views/ProductDetail';
 import Shop from './views/Shop';
 import Support from './views/Support';
+import ResetPassword from './views/ResetPassword';
 // MODULE_IMPORTS_START
 // MODULE_IMPORTS_END
 
@@ -39,6 +41,8 @@ const AppRoutes = () => (
     <Route path="/payment-cancel" element={<PaymentCancel />} />
     <Route path="/payment-success" element={<PaymentSuccess />} />
     <Route path="/account" element={<Account />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
+    <Route path="/verify-email" element={<EmailVerification />} />
     <Route
       path="/admin/*"
       element={

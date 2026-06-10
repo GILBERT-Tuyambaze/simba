@@ -285,14 +285,16 @@ const Header: React.FC = () => {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => logout()}>
+                <DropdownMenuItem onSelect={() => {
+                  void logout().then(() => navigate('/', { replace: true }));
+                }}>
                   {t('header.logout')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
             <button
-              onClick={() => login()}
+              onClick={() => navigate('/login')}
               className="terminal-btn hidden sm:flex items-center gap-2 text-xs"
             >
               <User className="h-4 w-4" />

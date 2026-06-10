@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
+  CheckCircle,
   CreditCard,
+  Lock,
   MapPin,
   Package,
   Phone,
+  ShieldCheck,
   ShoppingCart,
   Truck,
 } from 'lucide-react';
@@ -26,9 +29,34 @@ import { BRANCHES, formatRWF, getBranchDetails, type UserProfile } from '@/lib/t
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MessageDialog } from '@/components/ui/message-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useI18n } from '@/lib/i18n';
+
+function getDeliveryEstimate(
+  deliveryMethod: 'delivery' | 'pickup',
+  branch: string,
+): { label: string; detail: string } {
+  if (deliveryMethod === 'pickup') {
+    return {
+      label: 'Ready for pickup today',
+      detail: `Collect at ${branch} within 2 hours during opening hours.`,
+    };
+  }
+  const now = new Date();
+  const hour = now.getHours();
+  if (hour < 14) {
+    return {
+      label: 'Same-day delivery',
+      detail: 'Order before 14:00 for delivery today. Estimated window: 16:00 - 20:00.',
+    };
+  }
+  return {
+    label: 'Next-day delivery',
+    detail: 'Order now for delivery tomorrow. Estimated window: 09:00 - 13:00.',
+  };
+}
 
 type FieldErrors = {
   name?: string;
@@ -208,7 +236,8 @@ function normalizeStoredPaymentMethod(value: string | null | undefined): Checkou
 export default function CheckoutPage() {
   const { user, loading } = useAuth();
   const { items, hydrated, subtotal, branch, setBranch, syncStockLimit, clear } = useCart();
-  const { products } = useProducts();
+  const productIds = useMemo(() => Array.from(new Set(items.map((item) => item.product_id))), [items]);
+  const { products } = useProducts(productIds.length > 0 ? { ids: productIds, limit: productIds.length } : { limit: 1 });
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
@@ -235,6 +264,7 @@ export default function CheckoutPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alertOpen, setAlertOpen] = useState(false);
 
   const shipping = useMemo(() => {
     if (deliveryMethod === 'pickup') {
@@ -491,6 +521,10 @@ export default function CheckoutPage() {
     }
   };
 
+  useEffect(() => {
+    setAlertOpen(Boolean(error));
+  }, [error]);
+
   const handlePlaceOrder = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -697,20 +731,71 @@ export default function CheckoutPage() {
           </Link>
         </div>
 
-        {error && (
-          <div className="mb-6 border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-            {error}
-          </div>
-        )}
+        <MessageDialog
+          open={alertOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setError(null);
+            }
+            setAlertOpen(open);
+          }}
+          title="Checkout issue"
+          description={error || 'An unexpected problem occurred.'}
+          variant="error"
+          actionLabel="Okay"
+        />
 
         {!user && (
-          <div className="mb-6 border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <div className="mb-6 border border-secondary/30 bg-secondary/10 p-4 text-sm text-foreground">
             <div className="mb-2 font-semibold">Browse your order</div>
             <p>
               You can review your order and fill in delivery details below. You will be asked to sign in when you place the order.
             </p>
           </div>
         )}
+
+        {/* Mobile Checkout Progress */}
+        <div className="mb-6 lg:hidden">
+          <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            {[
+              { label: t('checkout.progress.cart'), done: false, active: false },
+              { label: t('checkout.progress.delivery'), done: false, active: true },
+              { label: t('checkout.progress.payment'), done: false, active: false },
+              { label: t('checkout.progress.confirmation'), done: false, active: false },
+            ].map((step, i) => (
+              <div key={step.label} className="flex items-center gap-1">
+                {i > 0 && <div className="mx-1 h-px w-4 bg-border" />}
+                <div className={`flex h-5 w-5 items-center justify-center border text-[8px] font-bold ${
+                  step.active
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground'
+                }`}>
+                  {i + 1}
+                </div>
+                <span className={step.active ? 'text-primary' : ''}>{step.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Trust Layer */}
+        <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[
+            { icon: Lock, label: t('checkout.trust.secure'), desc: t('checkout.trust.secureDesc') },
+            { icon: ShieldCheck, label: t('checkout.trust.protected'), desc: t('checkout.trust.protectedDesc') },
+            { icon: CheckCircle, label: t('checkout.trust.inventory'), desc: t('checkout.trust.inventoryDesc') },
+            { icon: Phone, label: t('checkout.trust.support'), desc: t('checkout.trust.supportDesc') },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label} className="border border-border bg-card p-3 text-center">
+                <Icon className="mx-auto mb-2 h-4 w-4 text-primary" />
+                <div className="text-[10px] uppercase tracking-[0.2em] text-primary font-semibold">{item.label}</div>
+                <div className="mt-1 text-[9px] text-muted-foreground leading-relaxed">{item.desc}</div>
+              </div>
+            );
+          })}
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
           <form onSubmit={handlePlaceOrder} className="space-y-6">
@@ -733,7 +818,7 @@ export default function CheckoutPage() {
               )}
 
               {profileNotice && (
-                <div className="mb-4 border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                <div className="mb-4 border border-orange-500/30 bg-orange-500/10 p-3 text-xs text-orange-100">
                   {profileNotice}
                 </div>
               )}
@@ -818,6 +903,19 @@ export default function CheckoutPage() {
                       </p>
                     </div>
                   )}
+
+                  {(() => {
+                    const eta = getDeliveryEstimate(deliveryMethod, branch);
+                    return (
+                      <div className="mt-2 border border-primary/20 bg-primary/5 p-3">
+                        <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-primary font-semibold">
+                          <Truck className="h-3 w-3" />
+                          {t('checkout.eta.estimatedDelivery')}: {eta.label}
+                        </div>
+                        <p className="mt-1 text-[9px] text-muted-foreground">{eta.detail}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div className="space-y-2">
@@ -957,7 +1055,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {deliveryMethod === 'pickup' && (
-                  <div className="md:col-span-2 border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                  <div className="md:col-span-2 border border-amber-500/30 bg-amber-500/15 p-4 text-sm text-amber-900 dark:text-amber-100">
                     <div className="text-[10px] uppercase tracking-[0.2em]">
                       {t('checkout.deposit')}: {formatRWF(depositAmount)}
                     </div>
@@ -986,7 +1084,7 @@ export default function CheckoutPage() {
                   {fieldErrors.promo ? (
                     <p className="text-xs text-red-300">{fieldErrors.promo}</p>
                   ) : promoNotice ? (
-                    <p className="text-xs text-emerald-200">{promoNotice}</p>
+                    <p className="text-xs text-orange-200">{promoNotice}</p>
                   ) : (
                     <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                       Use <span className="text-accent">{PROMO_CODE}</span> for RWF 2,000 off on

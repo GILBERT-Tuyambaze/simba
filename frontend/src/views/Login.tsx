@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MessageDialog } from '@/components/ui/message-dialog';
 import { getAuthErrorMessage } from '@/lib/auth';
 import { acceptInvitation, fetchInvitationPreview } from '@/lib/invitations';
 import { useI18n } from '@/lib/i18n';
@@ -173,6 +174,8 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetSent, setResetSent] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [alertOpen, setAlertOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [invitePreview, setInvitePreview] = useState<Invitation | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -243,6 +246,10 @@ export default function LoginPage() {
     navigate(returnPath, { replace: true });
   }, [inviteToken, loading, navigate, postAuthBusy, returnPath, t, user]);
 
+  useEffect(() => {
+    setAlertOpen(Boolean(visibleError || resetSent || verificationSent));
+  }, [visibleError, resetSent, verificationSent]);
+
   const supabaseMissing = !isSupabaseConfigured();
 
   const handleGoogleSignIn = async () => {
@@ -283,6 +290,7 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     setResetSent(false);
+    setVerificationSent(false);
     setLoginPhase('credentials');
 
     try {
@@ -291,12 +299,13 @@ export default function LoginPage() {
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/login?next=${encodeURIComponent(returnPath)}`,
+            emailRedirectTo: `${window.location.origin}/verify-email`,
           },
         });
         if (signUpError) {
           throw signUpError;
         }
+        setVerificationSent(true);
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -328,10 +337,11 @@ export default function LoginPage() {
 
     setError(null);
     setSubmitting(true);
+    setVerificationSent(false);
     setLoginPhase('credentials');
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: `${window.location.origin}/login`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       if (resetError) {
         throw resetError;
@@ -468,21 +478,32 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                {visibleError && (
-                  <div className="flex gap-3 border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div className="space-y-1">
-                      <p className="font-semibold text-red-100">{t('auth.signInFailed')}</p>
-                      <p className="text-red-100/80">{visibleError}</p>
-                    </div>
-                  </div>
-                )}
-
-                {resetSent && (
-                  <div className="border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-100">
-                    {t('auth.resetSent')}
-                  </div>
-                )}
+                <MessageDialog
+                  open={alertOpen}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setError(null);
+                      setResetSent(false);
+                      setVerificationSent(false);
+                    }
+                    setAlertOpen(open);
+                  }}
+                  title={
+                    verificationSent
+                      ? 'Verification email sent'
+                      : resetSent
+                      ? 'Password reset sent'
+                      : t('auth.signInFailed')
+                  }
+                  description={
+                    visibleError
+                      ? visibleError
+                      : verificationSent
+                      ? 'Please check your inbox and click the verification link to complete your sign up.'
+                      : t('auth.resetSent')
+                  }
+                  variant={visibleError ? 'error' : 'success'}
+                />
 
                 <Button
                   type="button"

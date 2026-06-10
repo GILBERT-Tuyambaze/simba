@@ -1,17 +1,21 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Filter, Grid, List, X } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import ProductCard from '@/components/products/ProductCard';
-import { useProducts } from '@/hooks/useProducts';
+import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
+import { useProductFacets, useProducts } from '@/hooks/useProducts';
 import { useI18n } from '@/lib/i18n';
 import {
   buildLocalConversationalMatches,
-  buildLocalConversationalResult,
-  runConversationalSearch,
-  type ConversationalSearchResult,
-} from '@/lib/conversational-search';
+  buildSearchPlan,
+  runSimbaSearch,
+  composeSimbaResponse,
+  createSimbaContext,
+  type SimbaResponse,
+} from '@/lib/simba-intelligence';
 
 function parseProductIds(value: string | null): number[] {
   if (!value) {
@@ -33,7 +37,6 @@ function parseProductIds(value: string | null): number[] {
 
 const Shop: React.FC = () => {
   const [params, setParams] = useSearchParams();
-  const { products, loading } = useProducts();
   const { t, translateCategory } = useI18n();
 
   const [category, setCategory] = useState<string>(params.get('category') || '');
@@ -45,9 +48,43 @@ const Shop: React.FC = () => {
   const [sort, setSort] = useState<string>('popular');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
-  const [aiResult, setAiResult] = useState<ConversationalSearchResult | null>(null);
+  const [aiResult, setAiResult] = useState<SimbaResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const { user } = useAuth();
+  const { branch } = useCart();
   const selectedProductIds = useMemo(() => parseProductIds(params.get('ids')), [params]);
+  const { categories, brands } = useProductFacets();
+  const simbaContext = useMemo(
+    () => createSimbaContext({
+      branch,
+      user: user
+        ? {
+            id: user.id,
+            email: user.email || undefined,
+            name: user.name || undefined,
+            role: user.role,
+            default_branch: user.default_branch || null,
+          }
+        : undefined,
+    }),
+    [branch, user]
+  );
+
+  const plan = useMemo(
+    () => buildSearchPlan(query, simbaContext.branch, selectedProductIds),
+    [query, selectedProductIds, simbaContext.branch]
+  );
+
+  const productQueryOptions = useMemo(() => ({
+    ...plan.options,
+    category: selectedProductIds.length > 0 ? undefined : category || undefined,
+    brand: selectedProductIds.length > 0 ? undefined : brand || undefined,
+    priceMax: selectedProductIds.length > 0 ? undefined : priceMax,
+    saleOnly: selectedProductIds.length > 0 ? undefined : Boolean(saleOnly || plan.options.saleOnly),
+    inStockOnly: selectedProductIds.length > 0 ? undefined : inStockOnly,
+    sort,
+  }), [brand, category, inStockOnly, plan.options, priceMax, saleOnly, selectedProductIds.length, sort]);
+  const { products, loading, total } = useProducts(productQueryOptions);
   const selectedProducts = useMemo(() => {
     if (selectedProductIds.length === 0) {
       return [];
@@ -67,6 +104,7 @@ const Shop: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
+    let requestSeq = 0;
 
     async function loadConversation() {
       if (!query.trim() || products.length === 0) {
@@ -76,20 +114,28 @@ const Shop: React.FC = () => {
       }
 
       if (selectedProducts.length > 0) {
-        setAiResult({
-          message: `Showing ${selectedProducts.length} assistant-selected products for "${query}".`,
-          products: selectedProducts,
-          productIds: selectedProducts.map((product) => product.id),
-          source: 'local',
-        });
+        setAiResult(
+          composeSimbaResponse(
+            plan,
+            selectedProducts,
+            'local',
+            `Showing ${selectedProducts.length} assistant-selected products for "${query}".`
+          )
+        );
         setAiLoading(false);
         return;
       }
 
-      setAiResult(buildLocalConversationalResult(query, products));
+      const currentSeq = ++requestSeq;
+      const localResponse = composeSimbaResponse(
+        plan,
+        buildLocalConversationalMatches(query, products, 4, branch),
+        'local'
+      );
+      setAiResult(localResponse);
       setAiLoading(true);
-      const result = await runConversationalSearch(query, products);
-      if (!cancelled) {
+      const result = await runSimbaSearch(query, products, 4, branch);
+      if (!cancelled && currentSeq === requestSeq) {
         setAiResult(result);
         setAiLoading(false);
       }
@@ -99,15 +145,7 @@ const Shop: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [products, query, selectedProducts, t]);
-
-  const categories = useMemo(() => {
-    return Array.from(new Set(products.map((p) => p.category))).sort();
-  }, [products]);
-
-  const brands = useMemo(() => {
-    return Array.from(new Set(products.map((p) => p.brand))).sort();
-  }, [products]);
+  }, [branch, plan, products, query, selectedProducts, t]);
 
   const conversationalBase = useMemo(() => {
     if (!query.trim()) {
@@ -122,26 +160,23 @@ const Shop: React.FC = () => {
       return aiResult.products;
     }
 
-    return buildLocalConversationalMatches(query, products);
-  }, [aiResult, products, query, selectedProducts]);
+    return buildLocalConversationalMatches(query, products, 8, branch);
+  }, [aiResult, branch, products, query, selectedProducts]);
 
   const filtered = useMemo(() => {
-    let list = [...conversationalBase];
-    if (category) list = list.filter((p) => p.category === category);
-    if (brand) list = list.filter((p) => p.brand === brand);
-    list = list.filter((p) => p.price <= priceMax);
-    if (saleOnly) list = list.filter((p) => p.discount > 0);
-    if (inStockOnly) list = list.filter((p) => p.in_stock);
+    const list = [...conversationalBase];
 
-    switch (sort) {
-      case 'price-asc': list.sort((a, b) => a.price - b.price); break;
-      case 'price-desc': list.sort((a, b) => b.price - a.price); break;
-      case 'rating': list.sort((a, b) => b.rating - a.rating); break;
-      case 'discount': list.sort((a, b) => b.discount - a.discount); break;
-      default: list.sort((a, b) => b.rating * 10 + b.discount - (a.rating * 10 + a.discount));
+    if (query.trim() && aiResult?.products.length) {
+      switch (sort) {
+        case 'price-asc': list.sort((a, b) => a.price - b.price); break;
+        case 'price-desc': list.sort((a, b) => b.price - a.price); break;
+        case 'rating': list.sort((a, b) => b.rating - a.rating); break;
+        case 'discount': list.sort((a, b) => b.discount - a.discount); break;
+        default: list.sort((a, b) => b.rating * 10 + b.discount - (a.rating * 10 + a.discount));
+      }
     }
     return list;
-  }, [conversationalBase, category, brand, priceMax, saleOnly, inStockOnly, sort]);
+  }, [aiResult, conversationalBase, query, sort]);
 
   const clearFilters = () => {
     setCategory('');
@@ -152,6 +187,37 @@ const Shop: React.FC = () => {
     setInStockOnly(false);
     setParams({});
   };
+
+  const filterDialogRef = useRef<HTMLDivElement>(null);
+
+  const closeMobileFilter = useCallback(() => {
+    setMobileFilterOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileFilterOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeMobileFilter();
+      }
+    };
+
+    const dialog = filterDialogRef.current;
+    if (dialog) {
+      const focusable = dialog.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      focusable?.focus();
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = '';
+    };
+  }, [mobileFilterOpen, closeMobileFilter]);
 
   const FilterPanel = (
     <div className="space-y-6">
@@ -181,7 +247,9 @@ const Shop: React.FC = () => {
 
       <div>
         <div className="text-xs uppercase text-muted-foreground mb-2">{t('shop.brand')}</div>
+        <label htmlFor="shop-brand-filter" className="sr-only">Filter by brand</label>
         <select
+          id="shop-brand-filter"
           value={brand}
           onChange={(e) => setBrand(e.target.value)}
           className="w-full border border-border bg-input p-2 font-mono text-xs"
@@ -195,7 +263,9 @@ const Shop: React.FC = () => {
         <div className="text-xs uppercase text-muted-foreground mb-2">
           MAX PRICE: <span className="text-primary">RWF {priceMax.toLocaleString()}</span>
         </div>
+        <label htmlFor="shop-price-max" className="sr-only">Maximum price</label>
         <input
+          id="shop-price-max"
           type="range"
           min={1000}
           max={300000}
@@ -208,11 +278,11 @@ const Shop: React.FC = () => {
 
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-xs cursor-pointer">
-          <input type="checkbox" checked={saleOnly} onChange={(e) => setSaleOnly(e.target.checked)} className="accent-primary" />
+          <input type="checkbox" checked={saleOnly} onChange={(e) => setSaleOnly(e.target.checked)} className="accent-primary min-h-[36px] min-w-[36px]" />
           <span>{t('shop.onSaleOnly')}</span>
         </label>
         <label className="flex items-center gap-2 text-xs cursor-pointer">
-          <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="accent-primary" />
+          <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} className="accent-primary min-h-[36px] min-w-[36px]" />
           <span>{t('shop.inStockOnly')}</span>
         </label>
       </div>
@@ -242,7 +312,7 @@ const Shop: React.FC = () => {
             )}
           </div>
           <div className="text-xs text-muted-foreground">
-            [{filtered.length}] {t('shop.itemsFound')}
+            [{total || filtered.length}] {t('shop.itemsFound')}
           </div>
         </div>
 
@@ -263,11 +333,14 @@ const Shop: React.FC = () => {
             <div className="flex items-center gap-2 mb-4 flex-wrap">
               <button
                 onClick={() => setMobileFilterOpen(true)}
-                className="lg:hidden terminal-btn text-xs flex items-center gap-1"
+                className="lg:hidden terminal-btn text-xs flex items-center gap-1 min-h-[36px]"
+                aria-label={t('shop.filters')}
               >
                 <Filter className="h-3 w-3" /> {t('shop.filters')}
               </button>
+              <label htmlFor="shop-sort" className="sr-only">Sort products</label>
               <select
+                id="shop-sort"
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
                 className="border border-border bg-input px-2 py-2 font-mono text-xs"
@@ -297,13 +370,25 @@ const Shop: React.FC = () => {
             </div>
 
             {query && (
-              <div className="mb-4 border border-primary/30 bg-primary/10 p-4">
+              <div className="mb-4 border border-primary/30 bg-primary/10 p-4 space-y-3">
                 <div className="text-[10px] uppercase tracking-[0.24em] text-primary">
                   {t('shop.aiHeading')}
                 </div>
-                <div className="mt-2 text-sm text-foreground">
+                <div className="text-sm text-foreground">
                   {aiLoading ? t('shop.thinking') : aiResult?.message || t('shop.aiFallback')}
                 </div>
+                {aiResult?.supportReply && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-foreground">
+                    <p>{aiResult.supportReply}</p>
+                    {aiResult.supportUrl && (
+                      <p className="mt-2">
+                        <Link to={aiResult.supportUrl} className="text-primary underline">
+                          {t('shop.contactSupport') ?? 'Go to support'}
+                        </Link>
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -329,13 +414,32 @@ const Shop: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile filter sheet */}
+      {/* Mobile filter dialog */}
       {mobileFilterOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 bg-background/80">
-          <div className="absolute bottom-0 right-0 top-0 w-[min(100vw,22rem)] max-w-full overflow-y-auto border-l border-border bg-card p-4">
+        <div
+          className="lg:hidden fixed inset-0 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('shop.filters')}
+        >
+          <div
+            className="absolute inset-0 bg-background/80"
+            onClick={closeMobileFilter}
+            aria-hidden="true"
+          />
+          <div
+            ref={filterDialogRef}
+            className="absolute bottom-0 right-0 top-0 w-[min(100vw,22rem)] max-w-full overflow-y-auto border-l border-border bg-card p-4"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="text-sm font-display text-primary">{t('shop.filters')}</div>
-              <button onClick={() => setMobileFilterOpen(false)}><X className="h-4 w-4" /></button>
+              <button
+                onClick={closeMobileFilter}
+                aria-label="Close filters"
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
             {FilterPanel}
           </div>

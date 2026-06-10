@@ -528,7 +528,7 @@ const Account: React.FC = () => {
                   )}
 
                   {profileNotice && (
-                    <div className="mb-4 border border-emerald-500/30 bg-emerald-500/10 p-4 text-sm text-emerald-100">
+                    <div className="mb-4 border border-orange-500/30 bg-orange-500/10 p-4 text-sm text-orange-100">
                       {profileNotice}
                     </div>
                   )}

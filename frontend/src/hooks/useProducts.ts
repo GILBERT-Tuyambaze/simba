@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Product } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
+import type { ProductQueryOptions } from '@/lib/simba-intelligence/queryPlanner';
 
 let cache: Product[] | null = null;
 
-function normalizeProduct(product: Product): Product {
+export type ProductFacets = {
+  categories: string[];
+  brands: string[];
+};
+
+export function normalizeProduct(product: Product): Product {
   const parsedBranchStock =
     typeof product.branch_stock === 'string'
       ? (() => {
@@ -51,34 +57,118 @@ function normalizeProduct(product: Product): Product {
   };
 }
 
-export const useProducts = () => {
-  const [products, setProducts] = useState<Product[]>(cache || []);
-  const [loading, setLoading] = useState(!cache);
+function hasQueryOptions(options?: ProductQueryOptions): boolean {
+  return Boolean(
+    options &&
+    (
+      options.category ||
+      options.brand ||
+      options.query ||
+      options.ids?.length ||
+      options.priceMax ||
+      options.saleOnly ||
+      options.inStockOnly ||
+      options.sort ||
+      options.limit ||
+      options.offset
+    )
+  );
+}
+
+function queryKey(options?: ProductQueryOptions): string {
+  return JSON.stringify({
+    category: options?.category || '',
+    brand: options?.brand || '',
+    query: options?.query || '',
+    ids: options?.ids || [],
+    priceMax: options?.priceMax || 0,
+    saleOnly: Boolean(options?.saleOnly),
+    inStockOnly: Boolean(options?.inStockOnly),
+    sort: options?.sort || '',
+    limit: options?.limit || 0,
+    offset: options?.offset || 0,
+  });
+}
+
+function applySort(query: any, sort?: string) {
+  switch (sort) {
+    case 'price-asc':
+      return query.order('price', { ascending: true });
+    case 'price-desc':
+      return query.order('price', { ascending: false });
+    case 'rating':
+      return query.order('rating', { ascending: false });
+    case 'discount':
+      return query.order('discount', { ascending: false });
+    default:
+      return query.order('rating', { ascending: false }).order('discount', { ascending: false }).order('id', { ascending: false });
+  }
+}
+
+export const useProducts = (options?: ProductQueryOptions) => {
+  const serverFiltered = hasQueryOptions(options);
+  const [products, setProducts] = useState<Product[]>(serverFiltered ? [] : cache || []);
+  const [loading, setLoading] = useState(serverFiltered || !cache);
+  const [total, setTotal] = useState<number>(serverFiltered ? 0 : cache?.length || 0);
+  const key = queryKey(options);
 
   useEffect(() => {
-    if (cache) return;
+    if (!serverFiltered && cache) return;
     let mounted = true;
     const loadProducts = async () => {
       try {
-        const { data, error } = await supabase
+        const limit = Math.max(1, Math.min(Number(options?.limit || 1000), 1000));
+        const offset = Math.max(0, Number(options?.offset || 0));
+        let request = supabase
           .from('product_catalog')
-          .select('*')
-          .eq('discontinued', false)
-          .order('id', { ascending: false })
-          .limit(1000);
+          .select('*', { count: 'exact' })
+          .eq('discontinued', false);
+
+        if (options?.ids?.length) {
+          request = request.in('id', options.ids);
+        }
+        if (options?.category) {
+          request = request.eq('category', options.category);
+        }
+        if (options?.brand) {
+          request = request.eq('brand', options.brand);
+        }
+        if (options?.priceMax) {
+          request = request.lte('price', options.priceMax);
+        }
+        if (options?.saleOnly) {
+          request = request.gt('discount', 0);
+        }
+        if (options?.inStockOnly) {
+          request = request.eq('in_stock', true);
+        }
+        if (options?.query?.trim()) {
+          const value = options.query.trim().replace(/[%_]/g, '');
+          request = request.or(
+            `name.ilike.%${value}%,category.ilike.%${value}%,brand.ilike.%${value}%,description.ilike.%${value}%`
+          );
+        }
+
+        const { data, error, count } = await applySort(request, options?.sort)
+          .range(offset, offset + limit - 1);
 
         if (error) {
           throw error;
         }
 
-        cache = ((data || []) as Product[]).map(normalizeProduct);
+        const nextProducts = ((data || []) as Product[]).map(normalizeProduct);
+        if (!serverFiltered) {
+          cache = nextProducts;
+        }
         if (mounted) {
-          setProducts(cache);
+          setProducts(nextProducts);
+          setTotal(count || nextProducts.length);
           setLoading(false);
         }
       } catch {
         if (mounted) {
           setProducts([]);
+          setTotal(0);
           setLoading(false);
         }
       }
@@ -88,14 +178,55 @@ export const useProducts = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [key, serverFiltered]);
 
-  return { products, loading };
+  return { products, loading, total };
 };
 
 export const useProduct = (id: number | string | undefined) => {
-  const { products, loading } = useProducts();
   const pid = typeof id === 'string' ? parseInt(id, 10) : id;
+  const { products, loading } = useProducts(pid ? { ids: [pid], limit: 1 } : undefined);
   const product = products.find((p) => p.id === pid);
   return { product, loading };
+};
+
+export const useProductFacets = () => {
+  const [facets, setFacets] = useState<ProductFacets>({ categories: [], brands: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadFacets = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('category,brand')
+          .eq('discontinued', false)
+          .limit(2000);
+
+        if (error) {
+          throw error;
+        }
+
+        const categories = Array.from(new Set((data || []).map((item: any) => item.category).filter(Boolean))).sort();
+        const brands = Array.from(new Set((data || []).map((item: any) => item.brand).filter(Boolean))).sort();
+        if (mounted) {
+          setFacets({ categories, brands });
+          setLoading(false);
+        }
+      } catch {
+        if (mounted) {
+          setFacets({ categories: [], brands: [] });
+          setLoading(false);
+        }
+      }
+    };
+
+    void loadFacets();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return { ...facets, loading };
 };

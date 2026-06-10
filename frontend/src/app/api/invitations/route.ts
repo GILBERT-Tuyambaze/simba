@@ -3,8 +3,21 @@ import { NextRequest } from 'next/server';
 import { canInviteRole, normalizeStoreRole } from '@/lib/store-roles';
 import { getRelationName } from '@/lib/supabase-mappers';
 import { json, requireServerUser, getServerProfile } from '../_lib/supabase-server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, {
+    route: '/api/invitations',
+    maxRequests: 5,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.allowed) {
+    return json(
+      { detail: 'Too many invitation requests. Please wait a moment and try again.' },
+      429,
+    );
+  }
+
   try {
     const { client, user } = await requireServerUser(request);
     const profile = await getServerProfile(client, user.id);
