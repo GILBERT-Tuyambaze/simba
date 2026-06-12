@@ -15,16 +15,35 @@ export function getRelationName(value: RelationName | RelationName[] | string | 
 }
 
 export function mapSupabaseOrder(row: any): Order {
-  const items = Array.isArray(row.order_items)
+  // PRIORITY 1: Use order_items table (fresh data from Supabase)
+  // PRIORITY 2: Fall back to orders.items JSON (legacy format)
+  // PRIORITY 3: Empty array
+  const orderItems = Array.isArray(row.order_items)
     ? row.order_items.map((item: any) => ({
         product_id: Number(item.product_id || 0),
-        product_name: item.product_name,
+        product_name: item.product_name || '',
         price: Number(item.price || 0),
         quantity: Number(item.quantity || 0),
         image: item.image || '',
         unit: item.unit || '',
       }))
     : [];
+
+  // Fallback to orders.items only if order_items is empty
+  const finalItems = orderItems.length > 0
+    ? orderItems
+    : (() => {
+        if (typeof row.items === 'string' && row.items.trim().length > 0) {
+          try {
+            const parsed = JSON.parse(row.items);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (error) {
+            console.warn(`[AUDIT] Failed to parse order items for order ${row.id}:`, row.items, error);
+            return [];
+          }
+        }
+        return [];
+      })();
 
   const branch = (row.branches || row.branch) as RelationName | string | null;
   const assignedBranch = (row.assigned_branch || row.assigned_branches) as RelationName | string | null;
@@ -40,11 +59,7 @@ export function mapSupabaseOrder(row: any): Order {
     customer_name: row.customer_name || '',
     branch: branchName,
     assigned_branch: assignedBranchName,
-    items: typeof row.items === 'string'
-      ? row.items
-      : row.items
-        ? JSON.stringify(row.items)
-        : JSON.stringify(items),
+    items: JSON.stringify(finalItems),
     subtotal: Number(row.subtotal || 0),
     shipping: Number(row.shipping || 0),
     discount: Number(row.discount || 0),

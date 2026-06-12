@@ -77,14 +77,20 @@ import {
 import {
   PERMISSION_ROWS,
   STORE_ROLE_CARDS,
-  canManageProducts,
   getStoreRoleMeta,
   normalizeStoreRole,
 } from '@/lib/store-roles';
+import { canAccess } from '@/lib/access-control';
 import { toast } from 'sonner';
 import { useI18n } from '@/lib/i18n';
 
 type RangeKey = '7d' | '30d' | '90d' | 'all';
+type AdminPanelId = 'overview' | 'orders' | 'inventory' | 'roles' | 'deliveries';
+type AdminNavItem = {
+  id: AdminPanelId;
+  label: string;
+  icon: typeof BarChart3;
+};
 type PaymentKey =
   | 'mtn_momo'
   | 'airtel_money'
@@ -194,10 +200,25 @@ function getRangeStart(range: RangeKey): Date | null {
 }
 
 function parseOrderItems(items: string): CartItem[] {
+  if (!items || items.trim() === '' || items === '[]') {
+    return [];
+  }
+
   try {
     const parsed = JSON.parse(items);
-    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-  } catch {
+    if (!Array.isArray(parsed)) {
+      console.warn('[AUDIT] parseOrderItems: Expected array but got:', typeof parsed);
+      return [];
+    }
+    return parsed.filter((item) => {
+      if (!item.product_id) {
+        console.warn('[AUDIT] parseOrderItems: Item missing product_id:', item);
+        return false;
+      }
+      return true;
+    });
+  } catch (error) {
+    console.error('[AUDIT] parseOrderItems: Failed to parse JSON:', error instanceof Error ? error.message : String(error));
     return [];
   }
 }
@@ -466,7 +487,7 @@ function MiniProductCard({
 }
 
 export default function Admin() {
-  const { user } = useAuth();
+  const { authState, user } = useAuth();
   const { t } = useI18n();
   const { products, loading: loadingProducts } = useProducts();
 
@@ -494,7 +515,7 @@ export default function Admin() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const activePanel = useMemo<'overview' | 'orders' | 'inventory' | 'roles' | 'deliveries'>(() => {
+  const activePanel = useMemo<AdminPanelId>(() => {
     const segment = location.pathname.split('/admin/')[1]?.split('/')[0] || 'overview';
     if (
       segment === 'orders' ||
@@ -506,24 +527,30 @@ export default function Admin() {
       return segment;
     }
 
-    if (normalizeStoreRole(user?.role) === 'delivery_agent') {
+    if (authState.accessRole === 'delivery_agent') {
       return 'deliveries';
     }
 
     return 'overview';
-  }, [location.pathname]);
+  }, [authState.accessRole, location.pathname]);
 
-  const roleMeta = getStoreRoleMeta(user?.role);
-  const canCreateProducts = canManageProducts(user?.role);
-  const deliveryNavOnly = normalizeStoreRole(user?.role) === 'delivery_agent';
-  const navItems = deliveryNavOnly
-    ? [{ id: 'deliveries', label: 'My deliveries', icon: Truck }]
-    : [
-        { id: 'overview', label: 'Overview', icon: BarChart3 },
-        { id: 'orders', label: 'Orders', icon: ShoppingBag },
-        { id: 'inventory', label: 'Inventory', icon: Package },
-        { id: 'roles', label: 'Access', icon: Shield },
-      ];
+  const roleMeta = getStoreRoleMeta(authState.accessRole);
+  const canCreateProducts = canAccess(authState, 'products:create');
+  const deliveryNavOnly = authState.accessRole === 'delivery_agent';
+  const navItems = useMemo<AdminNavItem[]>(() => {
+    if (deliveryNavOnly) {
+      return [{ id: 'deliveries', label: 'My deliveries', icon: Truck }];
+    }
+
+    return [
+      canAccess(authState, 'dashboard:view') ? { id: 'overview', label: 'Overview', icon: BarChart3 } : null,
+      canAccess(authState, 'orders:view_branch') || canAccess(authState, 'orders:view_own')
+        ? { id: 'orders', label: 'Orders', icon: ShoppingBag }
+        : null,
+      canAccess(authState, 'products:update') ? { id: 'inventory', label: 'Inventory', icon: Package } : null,
+      canAccess(authState, 'users:manage') ? { id: 'roles', label: 'Access', icon: Shield } : null,
+    ].filter((item): item is AdminNavItem => Boolean(item));
+  }, [authState, deliveryNavOnly]);
 
   useEffect(() => {
     let cancelled = false;
@@ -547,11 +574,22 @@ export default function Admin() {
       }
 
       if (ordersResult.status === 'fulfilled') {
+        const nextOrders = Array.isArray(ordersResult.value) ? ordersResult.value : [];
+        
+        if (nextOrders.length === 0) {
+          console.warn('[AUDIT] fetchAdminOrders returned empty array. Check RLS policies, user branch assignment, or database.');
+        }
+
         const previousOrders = previousOrdersRef.current;
         const nextOrdersMap = new Map<number, string>();
         const nextNotifications: Array<{ id: number; text: string; at: string }> = [];
 
-        ordersResult.value.forEach((order) => {
+        nextOrders.forEach((order) => {
+          if (!order.id || !order.status) {
+            console.error('[AUDIT] Invalid order structure:', order);
+            return;
+          }
+
           const status = (order.status || '').trim().toLowerCase();
           nextOrdersMap.set(order.id, status);
 
@@ -575,12 +613,13 @@ export default function Admin() {
         });
 
         previousOrdersRef.current = nextOrdersMap;
-        setOrders(ordersResult.value);
+        setOrders(nextOrders);
         if (nextNotifications.length > 0) {
           setNotifications((current) => [...nextNotifications, ...current].slice(0, 8));
         }
       } else {
         setOrders([]);
+        console.error('[AUDIT] fetchAdminOrders failed:', ordersResult.reason);
         setOrdersError(
           ordersResult.reason instanceof Error
             ? ordersResult.reason.message
@@ -589,9 +628,14 @@ export default function Admin() {
       }
 
       if (profilesResult.status === 'fulfilled') {
-        setProfiles(profilesResult.value);
+        const nextProfiles = Array.isArray(profilesResult.value) ? profilesResult.value : [];
+        if (nextProfiles.length === 0) {
+          console.warn('[AUDIT] fetchAdminProfiles returned empty array. Check RLS policies or data.');
+        }
+        setProfiles(nextProfiles);
       } else {
         setProfiles([]);
+        console.error('[AUDIT] fetchAdminProfiles failed:', profilesResult.reason);
         setProfilesError(
           profilesResult.reason instanceof Error
             ? profilesResult.reason.message
@@ -614,6 +658,7 @@ export default function Admin() {
         setVisitSummary(analyticsResult.value);
       } else {
         setVisitSummary(null);
+        console.error('[AUDIT] fetchVisitSummary failed:', analyticsResult.reason);
         setAnalyticsError(
           analyticsResult.reason instanceof Error
             ? analyticsResult.reason.message
@@ -633,14 +678,14 @@ export default function Admin() {
   }, [refreshTick, user?.id]);
 
   useEffect(() => {
-    if (!deliveryNavOnly) {
+    if (!navItems.length) {
       return;
     }
 
-    if (activePanel !== 'deliveries') {
-      navigate('/admin/deliveries', { replace: true });
+    if (!navItems.some((item) => item.id === activePanel)) {
+      navigate(`/admin/${navItems[0].id}`, { replace: true });
     }
-  }, [activePanel, deliveryNavOnly, navigate]);
+  }, [activePanel, navigate, navItems]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -867,11 +912,25 @@ export default function Admin() {
   const itemSales = useMemo(() => {
     return visibleOrders.flatMap((order) => {
       const items = parseOrderItems(order.items);
-      return items.map((item) => ({
-        order,
-        item,
-        product: productById.get(item.product_id),
-      }));
+      return items
+        .filter((item) => {
+          if (!item.product_id) {
+            console.warn('[AUDIT] Order item missing product_id in order', order.id);
+            return false;
+          }
+          return true;
+        })
+        .map((item) => {
+          const product = productById.get(item.product_id);
+          if (!product) {
+            console.warn(`[AUDIT] Product ${item.product_id} not found in catalog (referenced in order ${order.id})`);
+          }
+          return {
+            order,
+            item,
+            product: product || null,
+          };
+        });
     });
   }, [productById, visibleOrders]);
 
@@ -925,9 +984,9 @@ export default function Admin() {
       getStatusKey(order.status)
     )
   );
-  const isDeliveryAgent = normalizeStoreRole(user?.role) === 'delivery_agent';
+  const isDeliveryAgent = authState.accessRole === 'delivery_agent';
   const isBranchOperator = ['super_admin', 'branch_manager', 'branch_staff'].includes(
-    normalizeStoreRole(user?.role)
+    normalizeStoreRole(authState.accessRole)
   );
   const currentUserId = String(user?.id || '');
   const deliveryAgentOrders = useMemo(
@@ -2333,7 +2392,7 @@ export default function Admin() {
 
                 {canCreateProducts && (
                   <ProductCreatePanel
-                    actorRole={user?.role || 'customer'}
+                    actorRole={authState.accessRole}
                     defaultBranch={currentProfile?.default_branch || (branchFilter === 'all' ? BRANCHES[0] : branchFilter)}
                     editingProduct={editingProduct}
                     onCancelEdit={() => setEditingProduct(null)}
@@ -2463,7 +2522,7 @@ export default function Admin() {
 
                   <div className="mb-6">
                     <RoleInvitePanel
-                      actorRole={user?.role || 'customer'}
+                      actorRole={authState.accessRole}
                       defaultBranch={currentProfile?.default_branch || null}
                       profiles={profiles}
                       invitations={invitations}

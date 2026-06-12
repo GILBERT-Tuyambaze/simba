@@ -9,13 +9,14 @@ import ScrollToTop from './components/ScrollToTop';
 import VisitTracker from './components/VisitTracker';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
-import ProtectedAdminRoute from './components/ProtectedAdminRoute';
+import ProtectedRoute from './components/ProtectedRoute';
 import { I18nProvider } from './lib/i18n';
 import Admin from './views/Admin';
 import Account from './views/Account';
 import Checkout from './views/Checkout';
 import EmailVerification from './views/EmailVerification';
 import Login from './views/Login';
+import Assistant from './views/Assistant';
 import Index from './views/Index';
 import Legal from './views/Legal';
 import Cart from './views/Cart';
@@ -37,22 +38,37 @@ const AppRoutes = () => (
     <Route path="/shop" element={<Shop />} />
     <Route path="/cart" element={<Cart />} />
     <Route path="/legal" element={<Legal />} />
-    <Route path="/checkout" element={<Checkout />} />
+    <Route
+      path="/checkout"
+      element={
+        <ProtectedRoute>
+          <Checkout />
+        </ProtectedRoute>
+      }
+    />
     <Route path="/payment-cancel" element={<PaymentCancel />} />
     <Route path="/payment-success" element={<PaymentSuccess />} />
-    <Route path="/account" element={<Account />} />
+    <Route
+      path="/account"
+      element={
+        <ProtectedRoute>
+          <Account />
+        </ProtectedRoute>
+      }
+    />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/verify-email" element={<EmailVerification />} />
     <Route
       path="/admin/*"
       element={
-        <ProtectedAdminRoute>
+        <ProtectedRoute>
           <Admin />
-        </ProtectedAdminRoute>
+        </ProtectedRoute>
       }
     />
     <Route path="/product/:id" element={<ProductDetail />} />
     <Route path="/support" element={<Support />} />
+    <Route path="/assistant" element={<Assistant />} />
     <Route path="/blog/*" element={<BlogRoutes />} />
     {/* MODULE_ROUTES_START */}
     {/* MODULE_ROUTES_END */}

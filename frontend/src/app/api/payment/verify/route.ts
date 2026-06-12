@@ -1,8 +1,18 @@
 import { NextRequest } from 'next/server';
 import Stripe from 'stripe';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { getAdminSupabase, json, requireServerUser } from '../../_lib/supabase-server';
 
 export async function POST(request: NextRequest) {
+  const rateLimit = checkRateLimit(request, {
+    route: 'payment:verify',
+    maxRequests: 30,
+    windowMs: 60_000,
+  });
+  if (!rateLimit.allowed) {
+    return json({ detail: 'Too many payment verification attempts. Please wait and try again.' }, 429);
+  }
+
   try {
     const { user } = await requireServerUser(request);
     const stripeSecret = process.env.STRIPE_SECRET_KEY?.trim();

@@ -37,9 +37,9 @@ export default function EmailVerificationPage() {
       try {
         // Verify the email token or token hash
         const verifyArgs = tokenHash
-          ? { token_hash: tokenHash, type: 'email' }
+          ? { token_hash: tokenHash, type: 'email' as const }
           : email
-          ? { email, token: token!, type: 'email' }
+          ? { email, token: token!, type: 'email' as const }
           : null;
 
         if (!verifyArgs) {

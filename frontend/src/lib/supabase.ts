@@ -2,14 +2,41 @@ import { createClient, type Session, type User } from '@supabase/supabase-js';
 import { getRelationName } from './supabase-mappers';
 import { normalizeStoreRole, type StoreRoleKey } from './store-roles';
 
+function formatError(err: unknown) {
+  try {
+    if (err instanceof Error) {
+      return { name: err.name, message: err.message, stack: err.stack } as const;
+    }
+    if (err && typeof err === 'object') {
+      const obj = err as Record<string, unknown>;
+      const result: Record<string, unknown> = {};
+      if ('name' in obj) result.name = obj.name;
+      if ('message' in obj) result.message = obj.message;
+      if ('status' in obj) result.status = obj.status;
+      if ('statusText' in obj) result.statusText = obj.statusText;
+      if ('error_description' in obj) result.error_description = obj.error_description;
+      if ('details' in obj) result.details = obj.details;
+      return Object.keys(result).length ? result : JSON.parse(JSON.stringify(err));
+    }
+    return String(err);
+  } catch (e) {
+    return String(err);
+  }
+}
+
 export type ProfileRecord = {
   user_id: string;
+  id?: string | null;
   display_name?: string | null;
+  full_name?: string | null;
+  avatar_url?: string | null;
   phone?: string | null;
   email?: string | null;
   role?: StoreRoleKey | string | null;
   default_branch_id?: number | null;
   default_branch?: string | null;
+  branch_id?: number | null;
+  status?: string | null;
   addresses?: unknown;
   preferred_payment_method?: string | null;
   created_at?: string | null;
@@ -58,18 +85,20 @@ export async function getSupabaseUser(): Promise<{ user: User | null; error: Err
   try {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) {
-      console.warn('[Supabase] auth.getSession warning', {
+      console.error('[Supabase] auth.getSession failed', {
         authEndpoint,
         supabaseUrl,
         anonKeyConfigured: Boolean(supabaseAnonKey),
-        message: sessionError.message,
-        rawError: sessionError,
+        error: formatError(sessionError),
       });
+      return { user: null, error: sessionError };
     }
 
-    const sessionUser = sessionData?.session?.user ?? null;
-    if (sessionUser) {
-      return { user: sessionUser, error: null };
+    if (!sessionData.session) {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('No active Supabase session (guest user)');
+      }
+      return { user: null, error: null };
     }
 
     const { data, error } = await supabase.auth.getUser();
@@ -78,18 +107,15 @@ export async function getSupabaseUser(): Promise<{ user: User | null; error: Err
         authEndpoint,
         supabaseUrl,
         anonKeyConfigured: Boolean(supabaseAnonKey),
-        message: error.message,
-        rawError: error,
+        error: formatError(error),
       });
       return { user: data?.user ?? null, error };
     }
 
     if (!data?.user) {
-      console.warn('[Supabase] auth.getUser returned no user', {
-        authEndpoint,
-        supabaseUrl,
-        anonKeyConfigured: Boolean(supabaseAnonKey),
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('Supabase session exists but no user was returned');
+      }
       return { user: null, error: null };
     }
 
@@ -99,7 +125,7 @@ export async function getSupabaseUser(): Promise<{ user: User | null; error: Err
       authEndpoint,
       supabaseUrl,
       anonKeyConfigured: Boolean(supabaseAnonKey),
-      error: unexpected,
+      error: formatError(unexpected),
     });
     throw unexpected;
   }
@@ -148,6 +174,8 @@ export async function ensureUserProfile(user: User): Promise<ProfileRecord> {
   const displayName =
     typeof user.user_metadata?.display_name === 'string'
       ? user.user_metadata.display_name
+      : typeof user.user_metadata?.full_name === 'string'
+        ? user.user_metadata.full_name
       : typeof user.user_metadata?.name === 'string'
         ? user.user_metadata.name
         : user.email?.split('@')[0] || 'Simba customer';
@@ -155,10 +183,14 @@ export async function ensureUserProfile(user: User): Promise<ProfileRecord> {
   const { data, error } = await supabase
     .from('profiles')
     .insert({
+      id: user.id,
       user_id: user.id,
       email: user.email,
       display_name: displayName,
+      full_name: displayName,
+      avatar_url: typeof user.user_metadata?.avatar_url === 'string' ? user.user_metadata.avatar_url : null,
       role: 'customer',
+      status: 'active',
     })
     .select('*, branches:default_branch_id(name)')
     .single();

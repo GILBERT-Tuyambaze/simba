@@ -1,12 +1,12 @@
 import { getSupabaseUser, supabase } from './supabase';
 import { getRelationName } from './supabase-mappers';
-import { normalizeStoreRole } from './store-roles';
+import { normalizeStoreRole, type AccessRole } from './store-roles';
 
 export type AuthUser = {
   id: string;
   email: string;
   name?: string | null;
-  role: string;
+  role: AccessRole;
   default_branch?: string | null;
   last_login?: string | null;
 };

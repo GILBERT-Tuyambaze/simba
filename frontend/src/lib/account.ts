@@ -12,7 +12,6 @@ export type AccountProfileDraft = {
   display_name: string;
   phone: string;
   email: string;
-  role: string;
   default_branch: string;
   addresses: string;
   preferred_payment_method: CheckoutPaymentMethod;

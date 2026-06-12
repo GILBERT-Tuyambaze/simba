@@ -51,12 +51,14 @@ const Shop: React.FC = () => {
   const [aiResult, setAiResult] = useState<SimbaResponse | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const { user } = useAuth();
-  const { branch } = useCart();
+  const { branch, items: cartItems } = useCart();
   const selectedProductIds = useMemo(() => parseProductIds(params.get('ids')), [params]);
   const { categories, brands } = useProductFacets();
   const simbaContext = useMemo(
     () => createSimbaContext({
       branch,
+      pageType: 'shop',
+      pageTitle: 'Shop',
       user: user
         ? {
             id: user.id,
@@ -69,22 +71,32 @@ const Shop: React.FC = () => {
     }),
     [branch, user]
   );
-
-  const plan = useMemo(
-    () => buildSearchPlan(query, simbaContext.branch, selectedProductIds),
-    [query, selectedProductIds, simbaContext.branch]
+  const assistantContext = useMemo(
+    () => ({
+      ...simbaContext,
+      cartItems,
+    }),
+    [cartItems, simbaContext]
   );
 
   const productQueryOptions = useMemo(() => ({
-    ...plan.options,
     category: selectedProductIds.length > 0 ? undefined : category || undefined,
     brand: selectedProductIds.length > 0 ? undefined : brand || undefined,
+    query: selectedProductIds.length > 0 ? undefined : query.trim() || undefined,
+    ids: selectedProductIds.length > 0 ? selectedProductIds : undefined,
     priceMax: selectedProductIds.length > 0 ? undefined : priceMax,
-    saleOnly: selectedProductIds.length > 0 ? undefined : Boolean(saleOnly || plan.options.saleOnly),
+    saleOnly: selectedProductIds.length > 0 ? undefined : Boolean(saleOnly),
     inStockOnly: selectedProductIds.length > 0 ? undefined : inStockOnly,
     sort,
-  }), [brand, category, inStockOnly, plan.options, priceMax, saleOnly, selectedProductIds.length, sort]);
+    limit: selectedProductIds.length > 0 ? selectedProductIds.length : 100,
+    offset: 0,
+  }), [brand, category, inStockOnly, priceMax, query, saleOnly, selectedProductIds, sort]);
   const { products, loading, total } = useProducts(productQueryOptions);
+
+  const plan = useMemo(
+    () => buildSearchPlan(query, assistantContext.branch, selectedProductIds, assistantContext, products),
+    [assistantContext, products, query, selectedProductIds]
+  );
   const selectedProducts = useMemo(() => {
     if (selectedProductIds.length === 0) {
       return [];
@@ -134,7 +146,7 @@ const Shop: React.FC = () => {
       );
       setAiResult(localResponse);
       setAiLoading(true);
-      const result = await runSimbaSearch(query, products, 4, branch);
+      const result = await runSimbaSearch(query, products, 4, branch, assistantContext);
       if (!cancelled && currentSeq === requestSeq) {
         setAiResult(result);
         setAiLoading(false);
@@ -145,7 +157,7 @@ const Shop: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [branch, plan, products, query, selectedProducts, t]);
+  }, [assistantContext, branch, plan, products, query, selectedProducts, t]);
 
   const conversationalBase = useMemo(() => {
     if (!query.trim()) {

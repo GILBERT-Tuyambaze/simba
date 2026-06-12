@@ -5,69 +5,65 @@ import {
   buildLocalConversationalMatches,
   buildSearchPlan,
   composeSimbaResponse,
-  isProductRelevantToQuery,
+  type SimbaAssistantContext,
 } from '@/lib/simba-intelligence';
+import { runGroqCopilotV3 } from '@/lib/simba-intelligence/groqCopilot';
+import type { CartItem } from '@/lib/types';
 import type { Product } from '@/lib/types';
 
 const DEFAULT_LIMIT = 8;
 const MAX_CONTEXT_PRODUCTS = 160;
 
-function stringList(value: unknown): string[] {
-  if (Array.isArray(value)) return value.map(String).filter(Boolean);
-  if (typeof value !== 'string') return [];
-  try {
-    const parsed = JSON.parse(value);
-    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
-  } catch {
-    return value.split(',').map((item) => item.trim()).filter(Boolean);
+function parseCartItems(value: unknown): CartItem[] {
+  if (!Array.isArray(value)) {
+    return [];
   }
-  return [];
+
+  return value
+    .map((item) => item as Partial<CartItem>)
+    .filter((item) => Number.isFinite(Number(item.product_id)) && typeof item.product_name === 'string')
+    .map((item) => ({
+      product_id: Number(item.product_id),
+      product_name: String(item.product_name),
+      price: Number(item.price || 0),
+      image: String(item.image || ''),
+      quantity: Math.max(1, Number(item.quantity || 1)),
+      branch: item.branch ? String(item.branch) : undefined,
+      unit: item.unit ? String(item.unit) : undefined,
+      max_quantity: Number.isFinite(Number(item.max_quantity)) ? Number(item.max_quantity) : undefined,
+    }))
+    .slice(0, 40);
 }
 
-async function askGroq(query: string, candidates: Product[], localIds: number[], limit: number, branch?: string) {
-  const apiKey = process.env.GROQ_API_KEY?.trim();
-  if (!apiKey || candidates.length === 0) return null;
-
-  const catalog = candidates.slice(0, MAX_CONTEXT_PRODUCTS).map((product) => (
-    `${product.id} | ${product.name} | category: ${product.category || '-'} | brand: ${product.brand || '-'} | tags: ${stringList(product.tags).join(', ') || '-'} | description: ${(product.description || '').slice(0, 120)}`
-  )).join('\n');
-
-  const response = await fetch(`${process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1'}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-      temperature: 0.2,
-      max_tokens: 300,
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are Simba supermarket catalog search. Return JSON only: {"reply":"short answer","product_ids":[1,2]}. Select only relevant IDs from candidates. Never add unrelated products to fill the limit. Do not invent stock, policies, orders, or support answers.',
-        },
-        {
-          role: 'user',
-          content: `Customer query: "${query}"\nPreferred branch: ${branch || 'any'}\nLocal ranked IDs: ${localIds.join(', ') || 'none'}\nCatalog candidates:\n${catalog}`,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) return null;
-  const data = await response.json();
-  const raw = data?.choices?.[0]?.message?.content || '';
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
-  if (start === -1 || end === -1) return null;
-
-  try {
-    return JSON.parse(raw.slice(start, end + 1));
-  } catch {
-    return null;
+function parseHistory(value: unknown): SimbaAssistantContext['history'] {
+  if (!Array.isArray(value)) {
+    return [];
   }
+
+  return value
+    .map((item) => item as { role?: unknown; text?: unknown; query?: unknown })
+    .filter((item) => (item.role === 'assistant' || item.role === 'user') && typeof item.text === 'string')
+    .map((item, index) => ({
+      id: `api-history-${index}`,
+      role: item.role as 'assistant' | 'user',
+      text: String(item.text).slice(0, 1200),
+      query: typeof item.query === 'string' ? item.query : undefined,
+    }))
+    .slice(-12);
+}
+
+function parseStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map(String).map((item) => item.trim()).filter(Boolean).slice(0, 20);
+}
+
+function parseNumberList(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map(Number).filter(Number.isFinite).slice(0, 20);
 }
 
 export async function POST(request: NextRequest) {
@@ -88,7 +84,21 @@ export async function POST(request: NextRequest) {
     const query = String(body.query || '').trim();
     const limit = Math.max(1, Math.min(Number(body.limit || DEFAULT_LIMIT), 12));
     const branch = typeof body.branch === 'string' ? body.branch.trim() : '';
-    const plan = buildSearchPlan(query, branch || undefined);
+    const cartItems = parseCartItems(body.cart_items);
+    const history = parseHistory(body.history);
+    const context: SimbaAssistantContext = {
+      branch: branch || undefined,
+      pageType: typeof body.page_type === 'string' ? body.page_type : undefined,
+      pageTitle: typeof body.page_title === 'string' ? body.page_title : undefined,
+      productId: Number.isFinite(Number(body.product_id)) ? Number(body.product_id) : undefined,
+      categoryId: body.category_id ?? undefined,
+      branchId: body.branch_id ?? undefined,
+      cartSummary: typeof body.cart_summary === 'string' ? body.cart_summary : undefined,
+      currentUserRole: typeof body.current_user_role === 'string' ? body.current_user_role : undefined,
+      history,
+      cartItems,
+    };
+    const plan = buildSearchPlan(query, branch || undefined, undefined, context);
 
     if (!query) {
       const response = composeSimbaResponse(
@@ -117,28 +127,57 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
 
     const catalog = (data || []) as Product[];
-    const candidates = buildLocalConversationalMatches(query, catalog, Math.max(limit, MAX_CONTEXT_PRODUCTS), branch);
-    const localIds = candidates.slice(0, limit).map((product) => Number(product.id));
-    const ai = await askGroq(query, candidates, localIds, limit, branch).catch(() => null);
+    const copilot = await runGroqCopilotV3({
+      query,
+      catalog,
+      limit,
+      branch: branch || undefined,
+      context: {
+        ...context,
+        memory: body.memory && typeof body.memory === 'object' ? body.memory : undefined,
+        user: body.user && typeof body.user === 'object' ? body.user : undefined,
+      },
+      cartItems,
+      history,
+      lastViewedProducts: parseNumberList(body.last_viewed_products),
+      recentSearches: parseStringList(body.recent_searches),
+    }).catch(() => null);
 
+    if (copilot) {
+      return json({
+        message: copilot.message,
+        product_ids: copilot.productIds,
+        source: 'groq-v3',
+        intent: copilot.intent,
+        mode: copilot.mode,
+        confidence: copilot.confidence,
+        explanation: copilot.explanation,
+        suggestions: copilot.suggestions,
+        actions: copilot.actions,
+        recipe: copilot.recipe,
+        shopping_plan: copilot.shoppingPlan,
+        support_reply: copilot.supportReply,
+        support_url: copilot.supportUrl,
+        stages: {
+          nlu: copilot.nlu,
+          retrieval_instructions: copilot.retrievalInstructions,
+          evaluations: copilot.evaluations.slice(0, 12),
+          reasoning: copilot.reasoning,
+        },
+      });
+    }
+
+    const candidates = buildLocalConversationalMatches(query, catalog, Math.max(limit, MAX_CONTEXT_PRODUCTS), branch, context);
+    const localIds = candidates.slice(0, limit).map((product) => Number(product.id));
     const candidateById = new Map(candidates.map((product) => [Number(product.id), product]));
-    const aiIds = Array.isArray(ai?.product_ids)
-      ? ai.product_ids
-          .map((id: unknown) => Number(id))
-          .filter((id: number) => {
-            const product = candidateById.get(id);
-            return Number.isFinite(id) && Boolean(product) && isProductRelevantToQuery(query, product!, branch);
-          })
-      : [];
-    const productIds = Array.from(new Set([...aiIds, ...localIds])).slice(0, limit);
+    const productIds = Array.from(new Set(localIds)).slice(0, limit);
     const products = productIds
       .map((id) => candidateById.get(id))
       .filter((product): product is Product => Boolean(product));
     const composed = composeSimbaResponse(
       plan,
       products,
-      aiIds.length ? 'groq' : 'local',
-      typeof ai?.reply === 'string' && ai.reply.trim() ? ai.reply.trim() : undefined
+      'local'
     );
 
     return json({

@@ -601,7 +601,6 @@ export default function CheckoutPage() {
           display_name: fullName.trim(),
           phone: normalizePhone(phone),
           email: (user.email as string) || '',
-          role: (user.role as string) || 'customer',
           default_branch: branch,
           addresses: address.trim(),
           preferred_payment_method: paymentMethod,
@@ -617,7 +616,7 @@ export default function CheckoutPage() {
         setProfileId(savedProfile.id);
       }
 
-      const response = await createPaymentSession({
+      const checkoutPayload = {
         customer_name: fullName.trim(),
         items: items.map((item) => ({
           product_id: item.product_id,
@@ -640,7 +639,20 @@ export default function CheckoutPage() {
         success_url: paymentMethod === 'card' ? successUrl : undefined,
         cancel_url: paymentMethod === 'card' ? cancelUrl : undefined,
         currency: 'rwf',
+      };
+
+      console.log('[checkout] create-session payload', {
+        userId: user.id,
+        branch,
+        itemCount: checkoutPayload.items.length,
+        total: grandTotal,
+        paymentMethod,
+        deliveryMethod,
+        deliveryOption,
+        allowPartialFulfillment: effectivePickupFlex,
       });
+
+      const response = await createPaymentSession(checkoutPayload);
 
       if (paymentMethod === 'card') {
         if (!response.url) {

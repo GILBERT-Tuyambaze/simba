@@ -187,6 +187,25 @@ function parseOrderTimeline(order: Order): Array<{ status: string; label: string
   return [];
 }
 
+function formatOrderDate(
+  value?: string | null,
+  timeline?: Array<{ at?: string | null }>
+): string {
+  const candidates = [
+    value,
+    ...(Array.isArray(timeline) ? timeline.map((item) => item.at || null) : []),
+  ].filter((candidate): candidate is string => Boolean(candidate));
+
+  for (const candidate of candidates) {
+    const date = new Date(candidate);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleString();
+    }
+  }
+
+  return '-';
+}
+
 function getOrderRouteLabel(order: Order, translate?: (key: string) => string): string {
   if ((order.delivery_method || '').trim().toLowerCase() === 'pickup') {
     return `${translate?.('account.selfPickupAt') || 'Self pickup at'} ${order.branch}`;
@@ -354,7 +373,6 @@ const Account: React.FC = () => {
           display_name: draft.display_name,
           phone: draft.phone,
           email: draft.email,
-          role: draft.role,
           default_branch: draft.default_branch,
           addresses: draft.addresses,
           preferred_payment_method: draft.preferred_payment_method,
@@ -775,7 +793,7 @@ const Account: React.FC = () => {
                                 ORDER <span className="text-primary">#{order.id}</span> &bull; {order.tracking_number}
                               </div>
                               <div className="text-xs text-muted-foreground mt-1">
-                                {new Date(order.created_at).toLocaleString()}
+                                {formatOrderDate(order.created_at, order.timeline)}
                               </div>
                             </div>
                             <span className={`tag uppercase ${statusColor(order.status || 'pending')} flex items-center gap-1`}>
@@ -808,7 +826,7 @@ const Account: React.FC = () => {
                             </div>
                             <div>
                               <div className="text-muted-foreground text-[10px]">{t('account.total')}</div>
-                              <div className="text-primary font-bold">{formatRWF(order.total)}</div>
+                              <div className="text-primary font-bold">{formatRWF(order.total ?? 0)}</div>
                             </div>
                           </div>
                           <div className="mt-3 grid gap-2 sm:grid-cols-4">
@@ -944,21 +962,21 @@ const Account: React.FC = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="truncate">{i.product_name}</div>
-                              <div className="text-muted-foreground">x{i.quantity} @ {formatRWF(i.price)}</div>
+                              <div className="text-muted-foreground">x{i.quantity} @ {formatRWF(i.price ?? 0)}</div>
                             </div>
-                            <div className="text-primary shrink-0">{formatRWF(i.price * i.quantity)}</div>
+                            <div className="text-primary shrink-0">{formatRWF((i.price ?? 0) * (i.quantity ?? 0))}</div>
                           </div>
                         ))}
                       </div>
                       <div className="border-t border-border pt-3 space-y-1">
-                        <div className="data-row"><span className="label">{t('account.subtotal')}</span><span className="value">{formatRWF(selectedOrder.subtotal)}</span></div>
-                        <div className="data-row"><span className="label">{t('account.shipping')}</span><span className="value">{formatRWF(selectedOrder.shipping)}</span></div>
+                        <div className="data-row"><span className="label">{t('account.subtotal')}</span><span className="value">{formatRWF(selectedOrder.subtotal ?? 0)}</span></div>
+                        <div className="data-row"><span className="label">{t('account.shipping')}</span><span className="value">{formatRWF(selectedOrder.shipping ?? 0)}</span></div>
                         {selectedOrder.discount > 0 && (
-                          <div className="data-row"><span className="label">{t('account.discount')}</span><span className="value text-accent">-{formatRWF(selectedOrder.discount)}</span></div>
+                          <div className="data-row"><span className="label">{t('account.discount')}</span><span className="value text-accent">-{formatRWF(selectedOrder.discount ?? 0)}</span></div>
                         )}
                         <div className="flex justify-between pt-2 border-t border-border">
                           <span className="text-sm uppercase">{t('account.total')}</span>
-                          <span className="text-xl font-display text-primary crt-glow">{formatRWF(selectedOrder.total)}</span>
+                          <span className="text-xl font-display text-primary crt-glow">{formatRWF(selectedOrder.total ?? 0)}</span>
                         </div>
                       </div>
                     </div>

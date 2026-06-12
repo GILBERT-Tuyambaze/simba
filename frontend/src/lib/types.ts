@@ -16,6 +16,7 @@ export interface Product {
   stock_count?: number;
   branch_stock?: Record<string, number> | string;
   tags?: string[] | string;
+  keywords?: string[] | string;
   attributes?: Array<{ name: string; value: string }> | string;
   variations?: Array<{ name: string; values: string[] }> | string;
   options?: string[] | string;
@@ -132,8 +133,8 @@ export const BRANCH_DETAILS: Array<{
 }> = [
   {
     name: 'Simba Supermarket Remera',
-    address: '3336+MHV Union Trade Centre, 1 KN 4 Ave, Kigali',
-    shortAddress: 'Union Trade Centre, KN 4 Ave',
+    address: 'Remera, Kigali, RW',
+    shortAddress: 'Remera, Kigali',
     city: 'Kigali',
     rating: 4.8,
     reviewCount: 128,
@@ -208,6 +209,18 @@ export function getBranchDetails(branch: string) {
   return BRANCH_DETAILS.find((item) => item.name === branch) || null;
 }
 
-export const formatRWF = (amount: number): string => {
-  return `RWF ${amount.toLocaleString('en-US')}`;
+export function getActiveBranch(cartBranch: string | undefined, userDefaultBranch?: string | null) {
+  // Prefer explicit cart/selection, then user default, then fallback to first branch
+  if (cartBranch && String(cartBranch).trim()) return cartBranch as Branch;
+  if (userDefaultBranch && String(userDefaultBranch).trim()) return userDefaultBranch as Branch;
+  return BRANCHES[0];
+}
+
+export const formatRWF = (amount: number | string | null | undefined): string => {
+  const value = Number(amount);
+  if (!Number.isFinite(value)) {
+    return 'RWF 0';
+  }
+
+  return `RWF ${value.toLocaleString('en-US')}`;
 };

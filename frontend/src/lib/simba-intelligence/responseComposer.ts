@@ -1,12 +1,20 @@
 import type { Product } from '@/lib/types';
-import type { SimbaSearchPlan } from './queryPlanner';
+import {
+  buildLocalConversationalResult,
+  type AssistantAction,
+  type RecipePlan,
+  type ShoppingPlan,
+  type SimbaSearchPlan,
+} from './queryPlanner';
 
 export type SimbaResponseSource = 'local' | 'groq' | 'planner';
 
 export type SimbaResponse = {
   intent: SimbaSearchPlan['intent'];
+  mode: SimbaSearchPlan['mode'];
   source: SimbaResponseSource;
   query: string;
+  branch?: string;
   products: Product[];
   productIds: number[];
   supportReply?: string;
@@ -15,6 +23,10 @@ export type SimbaResponse = {
   explanation: string;
   suggestions: string[];
   confidence: number;
+  actions: AssistantAction[];
+  recipe?: RecipePlan;
+  shoppingPlan?: ShoppingPlan;
+  pageHint?: string;
 };
 
 export function composeSimbaResponse(
@@ -26,6 +38,7 @@ export function composeSimbaResponse(
 ): SimbaResponse {
   const productIds = products.map((product) => product.id);
   const branchMessage = plan.branch ? ` available at ${plan.branch}` : '';
+  const localResult = buildLocalConversationalResult(plan.query, products, products.length || 8, plan.branch);
 
   const supportReply = supportOverride?.supportReply ?? plan.supportReply;
   const supportUrl = supportOverride?.supportUrl ?? plan.supportUrl;
@@ -36,14 +49,21 @@ export function composeSimbaResponse(
   const message =
     typeof messageOverride === 'string' && messageOverride.trim()
       ? messageOverride.trim()
-      : products.length > 0
+    : products.length > 0
         ? `I found ${products.length} Simba products${branchMessage} related to "${plan.query}".`
-        : supportReply ?? `I could not find a strong Simba match for "${plan.query}" yet. Try a more specific product or meal idea.`;
+        : supportReply ?? `I do not see an exact match yet, but I can help with substitutes, nearby categories, branch availability, or a tighter budget.`;
+
+  const actions = [
+    ...(plan.actions || []),
+    ...(localResult.actions || []),
+  ];
 
   return {
     intent: plan.intent,
+    mode: plan.mode,
     source,
     query: plan.query,
+    branch: plan.branch,
     products,
     productIds,
     supportReply,
@@ -52,5 +72,9 @@ export function composeSimbaResponse(
     explanation: plan.explanation,
     suggestions,
     confidence: plan.confidence,
+    actions,
+    recipe: plan.recipe || localResult.recipe,
+    shoppingPlan: plan.shoppingPlan || localResult.shoppingPlan,
+    pageHint: plan.pageHint,
   };
 }

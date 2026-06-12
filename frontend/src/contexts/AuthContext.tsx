@@ -8,22 +8,20 @@ import React, {
 import {
   clearSessionToken,
   getAuthErrorMessage,
-  type AuthUser,
 } from '@/lib/auth';
-import {
-  ensureUserProfile,
-  getProfile,
-  getSupabaseUser,
-  isSupabaseConfigured,
-  supabase,
-} from '@/lib/supabase';
-import { canAccessDashboard, normalizeStoreRole } from '@/lib/store-roles';
+import { GUEST_AUTH_STATE, resolveAuthState, type AuthState } from '@/lib/auth-state';
+import { canAccess, type AccessPermission } from '@/lib/access-control';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 type AuthContextValue = {
-  user: AuthUser | null;
+  authState: AuthState;
+  user: AuthState['user'];
+  accessRole: AuthState['accessRole'];
+  permissions: AuthState['permissions'];
   loading: boolean;
   sessionSyncing: boolean;
   isAdmin: boolean;
+  canAccess: (permission: AccessPermission) => boolean;
   sessionError: string | null;
   login: () => void;
   logout: () => Promise<void>;
@@ -32,62 +30,22 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function resolveAuthUser(): Promise<AuthUser | null> {
-  if (!isSupabaseConfigured()) {
-    return null;
-  }
-
-  const { user, error } = await getSupabaseUser();
-  if (error || !user) {
-    return null;
-  }
-
-  const profile = await ensureUserProfile(user).catch(async () => {
-    return getProfile(user.id);
-  });
-
-  const roleSource = profile?.role ??
-    (typeof user.user_metadata?.role === 'string' ? user.user_metadata.role : null) ??
-    (typeof user.app_metadata?.role === 'string' ? user.app_metadata.role : null);
-
-  return {
-    id: user.id,
-    email: user.email || profile?.email || '',
-    name:
-      profile?.display_name ||
-      user.user_metadata?.display_name ||
-      user.user_metadata?.name ||
-      null,
-    role: normalizeStoreRole(roleSource),
-    default_branch: profile?.default_branch || null,
-    last_login: user.last_sign_in_at || null,
-  };
-}
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authState, setAuthState] = useState<AuthState>(GUEST_AUTH_STATE);
   const [loading, setLoading] = useState(true);
   const [sessionSyncing, setSessionSyncing] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
   const refreshUser = async () => {
-    if (!isSupabaseConfigured()) {
-      clearSessionToken();
-      setUser(null);
-      setSessionError('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.');
-      setLoading(false);
-      return;
-    }
-
     setSessionSyncing(true);
     try {
-      const nextUser = await resolveAuthUser();
-      setUser(nextUser);
-      setSessionError(null);
+      const nextState = await resolveAuthState();
+      setAuthState(nextState);
+      setSessionError(nextState.error ? getAuthErrorMessage(nextState.error, 'Failed to sync Supabase session.') : null);
     } catch (error) {
-      setUser(null);
+      setAuthState(GUEST_AUTH_STATE);
       setSessionError(getAuthErrorMessage(error, 'Failed to sync Supabase session.'));
     } finally {
       setSessionSyncing(false);
@@ -126,10 +84,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const value = useMemo<AuthContextValue>(
     () => ({
-      user,
+      authState,
+      user: authState.user,
+      accessRole: authState.accessRole,
+      permissions: authState.permissions,
       loading,
       sessionSyncing,
-      isAdmin: canAccessDashboard(user?.role),
+      isAdmin: canAccess(authState, 'dashboard:view'),
+      canAccess: (permission) => canAccess(authState, permission),
       sessionError,
       refreshUser,
       login: () => {
@@ -138,10 +100,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       logout: async () => {
         clearSessionToken();
         await supabase.auth.signOut().catch(() => {});
-        setUser(null);
+        setAuthState(GUEST_AUTH_STATE);
       },
     }),
-    [loading, sessionError, sessionSyncing, user]
+    [authState, loading, sessionError, sessionSyncing]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

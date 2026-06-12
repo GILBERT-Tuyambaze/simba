@@ -31,6 +31,7 @@ export type CreatePaymentSessionRequest = {
 };
 
 export type CreatePaymentSessionResponse = {
+  success?: boolean;
   order_id: number;
   tracking_number: string;
   status: string;
@@ -41,6 +42,7 @@ export type CreatePaymentSessionResponse = {
   total: number;
   deposit_amount?: number;
   pickup_time?: string | null;
+  sessionId?: string | null;
   session_id?: string | null;
   url?: string | null;
   message: string;
@@ -71,6 +73,15 @@ async function getHeaders(): Promise<HeadersInit> {
 async function readErrorDetail(response: Response): Promise<string | null> {
   try {
     const body = await response.json();
+    if (typeof body?.error === 'string') {
+      const parts = [
+        body.error,
+        body.code ? `Code: ${body.code}` : '',
+        body.step ? `Step: ${body.step}` : '',
+        body.requestId ? `Request: ${body.requestId}` : '',
+      ].filter(Boolean);
+      return parts.join(' | ');
+    }
     if (typeof body?.detail === 'string') {
       return body.detail;
     }

@@ -332,6 +332,7 @@ const Header: React.FC = () => {
         <div className="mx-auto flex max-w-7xl items-center gap-6 overflow-x-auto whitespace-nowrap px-4 py-2 text-xs uppercase tracking-wider">
           <Link to="/" className="hover:text-primary transition-colors">{t('nav.home')}</Link>
           <Link to="/shop" className="hover:text-primary transition-colors">{t('nav.shop')}</Link>
+          <Link to="/assistant" className="hover:text-primary transition-colors">ASSISTANT</Link>
           <Link to="/shop?category=Food Products" className="hover:text-primary transition-colors">{t('nav.food')}</Link>
           <Link to="/shop?category=Baby Products" className="hover:text-primary transition-colors">{t('nav.baby')}</Link>
           <Link to="/shop?category=Alcoholic Drinks" className="hover:text-primary transition-colors">{t('nav.beverages')}</Link>
@@ -373,6 +374,7 @@ const Header: React.FC = () => {
           <div className="grid grid-cols-1 gap-2 text-xs uppercase sm:grid-cols-2">
             <Link to="/" onClick={() => setMobileOpen(false)} className="border border-border p-2">{t('nav.home')}</Link>
             <Link to="/shop" onClick={() => setMobileOpen(false)} className="border border-border p-2">{t('nav.shop')}</Link>
+            <Link to="/assistant" onClick={() => setMobileOpen(false)} className="border border-border p-2">ASSISTANT</Link>
             <Link to="/cart" onClick={() => setMobileOpen(false)} className="border border-border p-2">{t('header.cart')}</Link>
             <Link to="/account" onClick={() => setMobileOpen(false)} className="border border-border p-2">{t('header.account')}</Link>
           </div>
@@ -405,5 +407,3 @@ const Header: React.FC = () => {
 };
 
 export default Header;
-
-

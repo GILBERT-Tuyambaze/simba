@@ -25,14 +25,16 @@ export default function ResetPasswordPage() {
 
   // Check if we have a recovery token
   const token = searchParams.get('token');
+  const tokenHash = searchParams.get('token_hash');
+  const email = searchParams.get('email');
   const type = searchParams.get('type');
 
   useEffect(() => {
-    if (type !== 'recovery' || !token) {
+    if (type !== 'recovery' || (!token && !tokenHash)) {
       setError('Invalid password reset link. Please request a new one.');
       setAlertOpen(true);
     }
-  }, [token, type]);
+  }, [token, tokenHash, type]);
 
   useEffect(() => {
     setAlertOpen(Boolean(error || success));
@@ -64,10 +66,17 @@ export default function ResetPasswordPage() {
     setLoading(true);
     try {
       // Verify the token first
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        token: token || '',
-        type: 'recovery',
-      });
+      const verifyArgs = tokenHash
+        ? { token_hash: tokenHash, type: 'recovery' as const }
+        : email
+        ? { email, token: token || '', type: 'recovery' as const }
+        : null;
+
+      if (!verifyArgs) {
+        throw new Error('Email is required to verify this password reset link.');
+      }
+
+      const { data, error: verifyError } = await supabase.auth.verifyOtp(verifyArgs);
 
       if (verifyError || !data.user) {
         throw verifyError || new Error('Failed to verify recovery token.');

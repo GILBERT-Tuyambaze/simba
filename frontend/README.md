@@ -68,3 +68,22 @@ npm run supabase:validate
 ```
 
 The app no longer requires a dedicated backend server.
+
+## Google OAuth
+
+Google sign-in is handled only by Supabase Auth. Do not add Google client IDs
+or client secrets to the Next.js environment.
+
+Configure Google in Supabase:
+
+1. Open Supabase Dashboard -> Authentication -> Providers -> Google.
+2. Enable Google and paste the Google OAuth client ID and client secret there.
+3. Add these redirect URLs in Supabase Authentication URL settings:
+
+```text
+http://localhost:3000/login
+https://<your-vercel-domain>/login
+```
+
+New Google users are inserted into `public.profiles` by the
+`on_auth_user_created` trigger with `role = customer`.

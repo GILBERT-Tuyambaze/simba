@@ -1,0 +1,114 @@
+   ▲ Next.js 15.5.19
+   - Environments: .env
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 3.5min
+   Linting and checking validity of types ...
+
+ ⚠ The Next.js plugin was not detected in your ESLint configuration. See https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config
+
+./src/app/layout.tsx
+10:14  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/components/assistant/AssistantWorkspace.tsx
+875:59  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/components/ui/badge.tsx
+46:17  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/components/ui/button-group.tsx
+82:3  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/components/ui/button.tsx
+60:18  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/components/ui/form.tsx
+159:3  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/components/ui/navigation-menu.tsx
+165:3  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/components/ui/sidebar.tsx
+725:3  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/components/ui/toggle.tsx
+47:18  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/contexts/AuthContext.tsx
+112:17  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/contexts/CartContext.tsx
+247:14  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/lib/admin.ts
+158:34  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/lib/analytics.ts
+89:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+90:43  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+91:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+92:44  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/lib/branch-reviews.ts
+20:34  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/lib/i18n.tsx
+237:17  Warning: Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components.  react-refresh/only-export-components
+
+./src/lib/supabase-mappers.ts
+17:39  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+19:34  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+75:41  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/views/Account.tsx
+410:6  Warning: React Hook useEffect has missing dependencies: 'loadOrders' and 'loadProfile'. Either include them or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/views/Admin.tsx
+645:6  Warning: React Hook useEffect has a missing dependency: 't'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/views/Cart.tsx
+35:6  Warning: React Hook useEffect has a missing dependency: 'products'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/views/PaymentCancel.tsx
+64:6  Warning: React Hook useEffect has a missing dependency: 't'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/views/PaymentSuccess.tsx
+78:6  Warning: React Hook useEffect has a missing dependency: 't'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/app/api-reference/config/eslint#disabling-rules
+   Collecting page data ...
+   Generating static pages (0/9) ...
+   Generating static pages (2/9) 
+   Generating static pages (4/9) 
+   Generating static pages (6/9) 
+ ✓ Generating static pages (9/9)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+
+Redirects
+┌ source: /:path+/
+├ destination: /:path+
+└ permanent: true
+
+
+Route (app)                                 Size  First Load JS
+┌ ○ /_not-found                            992 B         104 kB
+├ ƒ /[[...slug]]                          408 kB         511 kB
+├ ƒ /api/admin/roles/[userId]              143 B         103 kB
+├ ƒ /api/analytics/visit                   143 B         103 kB
+├ ƒ /api/catalog-assistant/search          143 B         103 kB
+├ ƒ /api/invitations                       143 B         103 kB
+├ ƒ /api/invitations/[token]               143 B         103 kB
+├ ƒ /api/payment/create-session            143 B         103 kB
+├ ƒ /api/payment/verify                    143 B         103 kB
+└ ƒ /api/stripe/webhook                    143 B         103 kB
++ First Load JS shared by all             103 kB
+  ├ chunks/0a85e729-90b3ff8e2b3ce6fc.js  54.2 kB
+  ├ chunks/168-2246f0195b3f3b4e.js       46.3 kB
+  └ other shared chunks (total)          2.04 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

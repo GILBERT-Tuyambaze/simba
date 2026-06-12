@@ -5,6 +5,8 @@ export type StoreRoleKey =
   | 'delivery_agent'
   | 'customer';
 
+export type AccessRole = 'guest' | StoreRoleKey;
+
 export type StoreRoleMeta = {
   key: StoreRoleKey;
   label: string;
@@ -174,6 +176,11 @@ export function normalizeStoreRole(role?: string | null): StoreRoleKey {
   return ROLE_ALIASES[normalized] || 'customer';
 }
 
+export function normalizeAccessRole(role?: string | null): AccessRole {
+  const normalized = (role || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return normalized === 'guest' ? 'guest' : normalizeStoreRole(role);
+}
+
 export function getStoreRoleMeta(role?: string | null): StoreRoleMeta {
   const normalized = normalizeStoreRole(role);
   return (
@@ -183,7 +190,8 @@ export function getStoreRoleMeta(role?: string | null): StoreRoleMeta {
 }
 
 export function canAccessDashboard(role?: string | null): boolean {
-  return normalizeStoreRole(role) !== 'customer';
+  const normalized = normalizeAccessRole(role);
+  return normalized !== 'guest' && normalized !== 'customer';
 }
 
 export function canManageProducts(role?: string | null): boolean {

@@ -153,7 +153,7 @@ function getReturnPath(
 }
 
 export default function LoginPage() {
-  const { user, loading, sessionSyncing, sessionError } = useAuth();
+  const { user, loading, sessionSyncing, sessionError, refreshUser } = useAuth();
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
@@ -181,6 +181,7 @@ export default function LoginPage() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [postAuthBusy, setPostAuthBusy] = useState(false);
   const [loginPhase, setLoginPhase] = useState<'idle' | 'credentials' | 'session'>('idle');
+  const [oauthCallbackHandled, setOauthCallbackHandled] = useState(false);
   const visibleError = error || sessionError;
   const busy = submitting || sessionSyncing || postAuthBusy;
 
@@ -252,6 +253,57 @@ export default function LoginPage() {
 
   const supabaseMissing = !isSupabaseConfigured();
 
+  useEffect(() => {
+    const oauthError = searchParams.get('error_description') || searchParams.get('error');
+    if (oauthError) {
+      setError(oauthError);
+      setAlertOpen(true);
+      return;
+    }
+
+    const code = searchParams.get('code');
+    if (!code || oauthCallbackHandled || supabaseMissing || user) {
+      return;
+    }
+
+    let cancelled = false;
+    setOauthCallbackHandled(true);
+    setSubmitting(true);
+    setLoginPhase('session');
+    setError(null);
+
+    supabase.auth.exchangeCodeForSession(code)
+      .then(async ({ error: exchangeError }) => {
+        if (exchangeError) {
+          throw exchangeError;
+        }
+
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('code');
+        cleanUrl.searchParams.delete('state');
+        cleanUrl.searchParams.delete('error');
+        cleanUrl.searchParams.delete('error_description');
+        window.history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+
+        await refreshUser();
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(getLocalizedAuthError(t, err));
+          setLoginPhase('idle');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubmitting(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [oauthCallbackHandled, refreshUser, searchParams, supabaseMissing, t, user]);
+
   const handleGoogleSignIn = async () => {
     if (supabaseMissing) {
       setError('Set Supabase environment variables to enable login.');
@@ -262,10 +314,17 @@ export default function LoginPage() {
     setSubmitting(true);
     setLoginPhase('credentials');
     try {
+      const redirectUrl = new URL('/login', window.location.origin);
+      redirectUrl.searchParams.set('next', returnPath);
+      if (inviteToken) {
+        redirectUrl.searchParams.set('invite', inviteToken);
+      }
+
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/login?next=${encodeURIComponent(returnPath)}${inviteToken ? `&invite=${encodeURIComponent(inviteToken)}` : ''}`,
+          redirectTo: redirectUrl.toString(),
+          scopes: 'email profile',
         },
       });
       if (signInError) {
