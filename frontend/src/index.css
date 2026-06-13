@@ -258,7 +258,7 @@
 
   .hero-surface {
     background-image:
-      linear-gradient(to right, rgb(0, 0, 0), rgb(0, 0, 0)),
+      linear-gradient(to right, rgba(0, 0, 0, 0.753), rgba(0, 0, 0, 0.678)),
       url("https://i.pinimg.com/1200x/b7/0f/20/b70f2073b266e466231f338b5a3c32a1.jpg");
     background-size: cover, cover;
     background-position: center center, center center;

@@ -95,7 +95,7 @@ const en = {
     'shop.thinking': 'Thinking through your request...',
     'shop.loading': '> loading...',
     'assistant.title': 'SIMBA ASSIST',
-    'assistant.subtitle': 'Chat for products and ideas',
+    'assistant.subtitle': 'PRODUCT SEARCH • CARTS • DEALS',
     'assistant.peek': 'Hi there. Need help finding groceries?',
     'assistant.peekBack': 'Welcome back',
     'assistant.peekRest': 'Need help finding groceries?',

@@ -812,7 +812,7 @@ function buildFallbackMessage(intent: CopilotV3Intent, query: string, products: 
     return `I found relevant Simba options for "${query}", starting with ${names}.`;
   }
 
-  return `I do not see an exact match yet, but I can still help narrow this down by category, branch, budget, or a substitute.`;
+  return "I'm here to help you find the best groceries and meal ideas at Simba. What are you looking for today?";
 }
 
 export async function runGroqCopilotV3(input: GroqCopilotInput): Promise<GroqCopilotResult | null> {

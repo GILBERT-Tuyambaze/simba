@@ -51,7 +51,7 @@ export function composeSimbaResponse(
       ? messageOverride.trim()
     : products.length > 0
         ? `I found ${products.length} Simba products${branchMessage} related to "${plan.query}".`
-        : supportReply ?? `I do not see an exact match yet, but I can help with substitutes, nearby categories, branch availability, or a tighter budget.`;
+        : supportReply ?? `I'm here to help you find the best groceries and meal ideas at Simba. I couldn't find an exact match for that, but I can help with substitutes or nearby categories. What else are you looking for today?`;
 
   const actions = [
     ...(plan.actions || []),

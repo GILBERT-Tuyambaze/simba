@@ -160,33 +160,40 @@ function getModeTone(mode?: string): string {
   switch (mode) {
     case 'recipe':
     case 'recipe_assistant':
-      return 'border-orange-400/30 bg-orange-500/10 text-orange-100';
+      return 'border-[#d6ff38]/30 bg-[#d6ff38]/10 text-[#d6ff38]';
     case 'meal_planning':
     case 'shopping_planner':
-      return 'border-cyan-400/30 bg-cyan-500/10 text-cyan-100';
+      return 'border-[#d6ff38]/30 bg-[#d6ff38]/10 text-[#d6ff38]';
     case 'support':
     case 'customer_support':
     case 'support_question':
-      return 'border-primary/30 bg-primary/10 text-primary';
+      return 'border-current/20 bg-current/5 text-muted-foreground';
     case 'order_tracking':
-      return 'border-amber-400/30 bg-amber-500/10 text-amber-100';
+      return 'border-current/20 bg-current/5 text-muted-foreground';
     case 'product_comparison':
     case 'product_expert':
-      return 'border-fuchsia-400/30 bg-fuchsia-500/10 text-fuchsia-100';
+      return 'border-current/20 bg-current/5 text-muted-foreground';
     case 'cart_optimization':
     case 'cart_builder':
-      return 'border-green-400/30 bg-green-500/10 text-green-100';
+      return 'border-[#d6ff38]/30 bg-[#d6ff38]/10 text-[#d6ff38]';
     case 'inventory_check':
     case 'branch_assistant':
-      return 'border-sky-400/30 bg-sky-500/10 text-sky-100';
+      return 'border-current/20 bg-current/5 text-muted-foreground';
     case 'promotion_search':
-      return 'border-accent/40 bg-accent/10 text-accent';
+      return 'border-[#d6ff38]/30 bg-[#d6ff38]/10 text-[#d6ff38]';
     case 'general_chat':
-      return 'border-border bg-secondary/40 text-muted-foreground';
+      return 'border-current/10 bg-current/5 text-muted-foreground/40';
     default:
-      return 'border-primary/30 bg-primary/10 text-primary';
+      return 'border-current/20 bg-current/5 text-muted-foreground';
   }
 }
+
+const THINKING_STEPS = [
+  '🔍 Searching products...',
+  '🏪 Checking inventory...',
+  '💰 Comparing prices...',
+  '✨ Preparing recommendations...',
+];
 
 function getDefaultPrompts(pageType: string, mode?: string): string[] {
   if (mode === 'recipe' || mode === 'recipe_assistant') {
@@ -258,9 +265,24 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
   const [showGreeting, setShowGreeting] = useState(false);
   const [draft, setDraft] = useState('');
   const [isReplying, setIsReplying] = useState(false);
+  const [thinkingStep, setThinkingStep] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Handle rotating thinking messages
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isReplying) {
+      interval = setInterval(() => {
+        setThinkingStep((prev) => (prev + 1) % THINKING_STEPS.length);
+      }, 2000);
+    } else {
+      setThinkingStep(0);
+    }
+    return () => clearInterval(interval);
+  }, [isReplying]);
+
   // Lock scroll while drawer is open and close on Escape
   useEffect(() => {
     if (!isOpen) return;
@@ -522,67 +544,29 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
     }
 
     setIsReplying(true);
-    const assistantMessageId = createId('assistant');
-    const plan = buildSearchPlan(query, branch, undefined, assistantContext, products);
-    const localResponseData = buildLocalConversationalResult(query, products, 6, branch, assistantContext);
-    const localResponse = composeSimbaResponse(plan, localResponseData.products, 'local');
-
-    const assistantMessage: ChatMessage = {
-      id: assistantMessageId,
-      role: 'assistant',
-      text: localResponse.message || t('assistant.defaultReply', 'Here are the closest Simba matches I found.'),
-      products: localResponse.products.slice(0, 6),
-      query,
-      mode: localResponse.mode,
-      confidence: localResponse.confidence,
-      explanation: localResponse.explanation,
-      suggestions: localResponse.suggestions,
-      actions: localResponse.actions,
-      supportReply: localResponse.supportReply,
-      supportUrl: localResponse.supportUrl,
-      recipe: localResponse.recipe,
-      shoppingPlan: localResponse.shoppingPlan,
-    };
-
-    setMessages((current) => [...current, assistantMessage]);
-    setSimbaContext((current) =>
-      updateSimbaMemory(
-        appendSimbaMessage(current, assistantMessage),
-        {
-          currentGoal: localResponse.recipe?.title || localResponse.shoppingPlan?.title || query,
-          currentMode: localResponse.mode,
-          currentRecipe: localResponse.recipe?.title,
-          currentShoppingList: localResponse.shoppingPlan?.items,
-          currentCart: cartItems.map((item) => item.product_id),
-          currentBranch: branch,
-          currentPageType: pageType,
-        }
-      )
-    );
 
     try {
       const result = await runSimbaSearch(query, products, 6, branch, assistantContext);
       const resultProducts = result.products.slice(0, 6);
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === assistantMessageId
-            ? {
-                ...message,
-                text: result.message || message.text,
-                products: resultProducts.length > 0 ? resultProducts : message.products,
-                mode: result.mode,
-                confidence: result.confidence,
-                explanation: result.explanation,
-                suggestions: result.suggestions,
-                actions: result.actions,
-                supportReply: result.supportReply,
-                supportUrl: result.supportUrl,
-                recipe: result.recipe || message.recipe,
-                shoppingPlan: result.shoppingPlan || message.shoppingPlan,
-              }
-            : message
-        )
-      );
+      
+      const assistantMessage: ChatMessage = {
+        id: createId('assistant'),
+        role: 'assistant',
+        text: result.message,
+        products: resultProducts,
+        query,
+        mode: result.mode,
+        confidence: result.confidence,
+        explanation: result.explanation,
+        suggestions: result.suggestions,
+        actions: result.actions,
+        supportReply: result.supportReply,
+        supportUrl: result.supportUrl,
+        recipe: result.recipe,
+        shoppingPlan: result.shoppingPlan,
+      };
+
+      setMessages((current) => [...current, assistantMessage]);
       setSimbaContext((current) =>
         updateSimbaMemory(current, {
           currentGoal: result.recipe?.title || result.shoppingPlan?.title || query,
@@ -594,8 +578,15 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
           currentPageType: pageType,
         })
       );
-    } catch {
-      // Keep the local response.
+    } catch (err) {
+      setMessages((current) => [
+        ...current,
+        {
+          id: createId('assistant'),
+          role: 'assistant',
+          text: t('assistant.error', 'I could not search the catalog right now. Please try again.'),
+        },
+      ]);
     }
 
     setIsReplying(false);
@@ -619,33 +610,36 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
   const confidence = latestAssistant?.confidence || 0;
 
   const conversationPanel = (
-    <section className={isPage ? 'industrial-border bg-card overflow-hidden' : 'industrial-border overflow-hidden bg-card/98 shadow-[0_0_34px_hsl(var(--primary)/0.16)] backdrop-blur-md'}>
+    <section className={isPage 
+      ? 'flex flex-col h-full overflow-hidden bg-background border border-[#d6ff38]/40 rounded-2xl shadow-2xl' 
+      : 'flex flex-col h-full overflow-hidden bg-background/95 dark:bg-[#0a0f0a]/95 backdrop-blur-xl border border-[#d6ff38]/30 shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-2xl'
+    }>
       {!isPage && (
-        <div className="border-b border-border bg-secondary/78 px-4 py-3">
+        <div className="border-b border-border bg-muted/30 px-4 py-5 md:px-6">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/40 bg-black/70">
-                <img src={BRAND_LOGO_URL} alt={BRAND_TITLE} className="h-7 w-7 object-contain" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-[#d6ff38]/20 bg-black/40">
+                <img src={BRAND_LOGO_URL} alt={BRAND_TITLE} className="h-8 w-8 object-contain" />
               </div>
               <div>
-                <div className="font-display text-2xl leading-none text-primary crt-glow">
+                <div className="font-display text-xl uppercase leading-tight text-[#d6ff38] crt-glow">
                   {t('assistant.title', 'Simba Assist')}
                 </div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-                  {t('assistant.subtitle', 'Chat for products and ideas')}
+                <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mt-1">
+                  {t('assistant.subtitle', 'PRODUCT SEARCH • CARTS • DEALS')}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Link to="/assistant" className="terminal-btn text-[10px]">
+            <div className="flex items-center gap-3">
+              <Link to="/assistant" className="terminal-btn hidden md:flex text-[10px] whitespace-nowrap px-5 min-w-[120px]">
                 Full assistant
               </Link>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                className="shrink-0 rounded-full border border-border bg-background/40"
+                className="shrink-0 rounded-full border border-border bg-background/50 text-muted-foreground hover:text-[#d6ff38] hover:bg-accent"
                 onClick={() => setIsOpen(false)}
                 aria-label={t('assistant.close', 'Close assistant')}
               >
@@ -657,10 +651,10 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
       )}
 
       {isPage && (
-        <div className="border-b border-border bg-secondary/70 px-5 py-4">
+        <div className="border-b border-[#d6ff38]/20 bg-[#111611] px-5 py-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">{resolvedPageTitle}</div>
+              <div className="text-xs uppercase tracking-[0.28em] text-muted-foreground">{resolvedPageTitle}</div>
               <h1 className="mt-1 text-2xl font-display text-primary crt-glow">
                 {t('assistant.title', 'Simba Assist')}
               </h1>
@@ -682,11 +676,11 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
 
       <div className={isPage ? 'grid gap-0 lg:grid-cols-[1.15fr_0.85fr]' : ''}>
         <div className={isPage ? 'border-r border-border' : ''}>
-          <ScrollArea className={isPage ? 'h-[calc(100vh-12rem)] min-h-[28rem] border-b border-border bg-background/82' : 'h-[24rem] border-b border-border bg-background/82'}>
+          <ScrollArea className={isPage ? 'h-[calc(100vh-12rem)] min-h-[28rem] border-b border-border bg-background' : 'flex-1 h-[400px] md:h-[500px] bg-background/40'}>
             <div className="space-y-3 px-4 py-4">
               {!messages.some((message) => message.role === 'user') && (
-                <div className="rounded-sm border border-dashed border-primary/30 bg-primary/14 p-3 text-sm text-muted-foreground">
-                  <div className="mb-2 text-[10px] uppercase tracking-[0.24em] text-primary">
+                <div className="industrial-border bg-muted/40 p-4">
+                  <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-[#d6ff38]/60 font-bold">
                     {t('assistant.tryAsking', 'Try asking')}
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -695,9 +689,9 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                         key={prompt}
                         type="button"
                         onClick={() => void sendMessage(prompt)}
-                        className="tag text-[10px] hover:border-primary hover:bg-primary/15"
+                        className="terminal-btn text-[10px]"
                       >
-                        {prompt}
+                        [ {prompt.toUpperCase()} ]
                       </button>
                     ))}
                   </div>
@@ -707,13 +701,13 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
               {messages.map((message) => (
                 <article
                   key={message.id}
-                  className={`max-w-[92%] rounded-sm border px-3 py-3 ${
+                  className={`max-w-[92%] border px-4 py-4 shadow-sm ${
                     message.role === 'assistant'
-                      ? 'border-primary/30 bg-primary/14 text-foreground'
-                      : 'ml-auto border-border bg-secondary/88 text-foreground'
+                      ? 'border-border bg-card/80 backdrop-blur-md text-card-foreground rounded-tr-xl rounded-br-xl rounded-bl-xl'
+                      : 'ml-auto border-[#d6ff38]/40 bg-[#d6ff38]/10 text-foreground rounded-tl-xl rounded-bl-xl rounded-br-xl'
                   }`}
                 >
-                  <div className="mb-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
+                  <div className="mb-2 flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.24em] text-muted-foreground/60 font-bold">
                     <span>
                       {message.role === 'assistant'
                         ? t('assistant.title', 'Simba Assist')
@@ -723,10 +717,10 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                       <span className={`tag ${getModeTone(message.mode)}`}>{getModeLabel(message.mode)}</span>
                     )}
                   </div>
-                  <div className="text-sm leading-relaxed">{message.text}</div>
+                  <div className="text-lg leading-[1.7] font-medium">{message.text}</div>
 
                   {message.supportReply && (
-                    <div className="mt-3 rounded-sm border border-border/60 bg-background/70 p-3 text-sm">
+                    <div className="mt-3 rounded-sm border border-border bg-muted/50 p-3 text-sm">
                       <div className="mb-1 text-[10px] uppercase tracking-[0.22em] text-primary">Support</div>
                       <p>{message.supportReply}</p>
                       {message.supportUrl && (
@@ -818,12 +812,26 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
               ))}
 
               {isReplying && (
-                <div className="max-w-[92%] rounded-sm border border-primary/30 bg-primary/14 px-3 py-3 text-sm text-muted-foreground">
-                  <div className="mb-1 text-[10px] uppercase tracking-[0.24em] text-primary">
-                    {t('assistant.title', 'Simba Assist')}
+                <article className="max-w-[88%] border border-border bg-muted/30 px-4 py-4 flex flex-col gap-3 rounded-tr-xl rounded-br-xl rounded-bl-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.24em] text-muted-foreground/40 font-bold">
+                    <span>{t('assistant.title', 'Simba Assist')}</span>
+                    <Sparkles className="h-3 w-3 text-[#d6ff38] animate-pulse" />
                   </div>
-                  <div className="cursor-blink">{t('assistant.thinking', 'Thinking through your shopping request...')}</div>
-                </div>
+                  
+                  <div className="flex flex-col gap-2.5">
+                    {/* Typing Indicator Dots */}
+                    <div className="flex gap-1.5 items-center h-4 ml-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#d6ff38] animate-bounce [animation-duration:0.8s] [animation-delay:-0.3s]"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#d6ff38] animate-bounce [animation-duration:0.8s] [animation-delay:-0.15s]"></span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#d6ff38] animate-bounce [animation-duration:0.8s]"></span>
+                    </div>
+                    
+                    {/* Rotating Status Text */}
+                    <div className="text-sm text-muted-foreground font-medium transition-all duration-500">
+                      {THINKING_STEPS[thinkingStep]}
+                    </div>
+                  </div>
+                </article>
               )}
 
               <div ref={bottomRef} />
@@ -831,25 +839,25 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
           </ScrollArea>
 
           {isPage && (
-            <div className="space-y-3 bg-card/98 px-4 py-4">
+            <div className="space-y-4 bg-muted/20 border-t border-border px-4 py-6">
               <Textarea
                 ref={textareaRef}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={t('assistant.placeholder', 'Ask for products, meal ideas, or best deals...')}
-                className="min-h-[74px] resize-none border-border bg-background/88 text-sm"
+                placeholder={t('assistant.placeholder', 'Ask for products, deals, or meal ideas...')}
+                className="min-h-[80px] resize-none border-border bg-background text-base"
               />
 
               <div className="flex items-center justify-between gap-3">
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                   {t('assistant.footerHint', 'Press Enter to send, Shift+Enter for a new line.')}
                 </div>
                 <Button
                   type="button"
                   onClick={() => void handleSubmit()}
                   disabled={!draft.trim() || isReplying}
-                  className="rounded-full px-4"
+                  className="rounded-full px-6 h-11"
                 >
                   {t('assistant.send', 'Send')}
                   <ArrowUp className="h-4 w-4" />
@@ -863,10 +871,10 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
           <aside className="border-t border-border bg-background/90 lg:border-l lg:border-t-0">
             <ScrollArea className="h-[calc(100vh-12rem)] min-h-[28rem]">
               <div className="space-y-4 p-5">
-                <div className="industrial-border bg-card p-4">
+                <div className="industrial-border bg-card p-5">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <div>
-                      <div className="text-[10px] uppercase tracking-[0.28em] text-muted-foreground">Context</div>
+                      <div className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Context</div>
                       <div className="mt-1 text-lg font-display text-primary crt-glow">{resolvedPageTitle}</div>
                     </div>
                     <span className={`tag uppercase ${getModeTone(latestAssistant?.mode || currentMode)}`}>
@@ -901,7 +909,7 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-sm font-display text-primary">&gt; Actions</h2>
                     <span className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-                      {latestActions.length} available
+                      {latestActions.length} READY
                     </span>
                   </div>
                   <div className="space-y-2">
@@ -983,7 +991,7 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                   <div className="industrial-border bg-card p-4">
                     <div className="mb-2 flex items-center justify-between">
                       <h2 className="text-sm font-display text-primary">&gt; Recipe</h2>
-                      <button type="button" className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground" onClick={() => latestRecipe.addAllProductIds.forEach((productId) => {
+                      <button type="button" className="text-xs uppercase tracking-[0.24em] text-muted-foreground hover:text-primary" onClick={() => latestRecipe.addAllProductIds.forEach((productId) => {
                         const product = products.find((item) => item.id === productId);
                         if (!product) return;
                         addItem({
@@ -1015,7 +1023,7 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                   <div className="industrial-border bg-card p-4">
                     <div className="mb-2 flex items-center justify-between">
                       <h2 className="text-sm font-display text-primary">&gt; Shopping plan</h2>
-                      <button type="button" className="text-[10px] uppercase tracking-[0.24em] text-muted-foreground" onClick={() => latestShoppingPlan.addAllProductIds.forEach((productId) => {
+                      <button type="button" className="text-xs uppercase tracking-[0.24em] text-muted-foreground hover:text-primary" onClick={() => latestShoppingPlan.addAllProductIds.forEach((productId) => {
                         const product = products.find((item) => item.id === productId);
                         if (!product) return;
                         addItem({
@@ -1065,32 +1073,28 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
       </div>
 
       {!isPage && (
-        <div className="space-y-3 bg-card/98 px-4 py-4">
-          <Textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t('assistant.placeholder', 'Ask for products, meal ideas, or best deals...')}
-            className="min-h-[74px] resize-none border-border bg-background/88 text-sm"
-          />
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-[11px] text-muted-foreground">
-              {t('assistant.footerHint', 'Press Enter to send, Shift+Enter for a new line.')}
-            </div>
-            <div className="flex items-center gap-2">
-              <Link to="/assistant" className="terminal-btn text-[10px]">
-                Full assistant
-              </Link>
+        <div className="mt-auto p-4 md:p-6 bg-muted/40 border-t border-border">
+          <div className="relative bg-background border border-border p-2 shadow-sm rounded-xl">
+            <Textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={t('assistant.placeholder', 'Ask for products or deals...')}
+              className="min-h-[60px] w-full resize-none border-0 bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 px-3 py-2 text-base font-sans"
+            />
+            <div className="flex items-center justify-between px-2 pb-1">
+              <div className="text-[10px] text-muted-foreground/60 uppercase tracking-widest hidden md:block">
+                &gt; USER_INPUT_REQUIRED
+              </div>
               <Button
                 type="button"
                 onClick={() => void handleSubmit()}
                 disabled={!draft.trim() || isReplying}
-                className="rounded-full px-4"
+                className="terminal-btn h-8 px-4 border-[#d6ff38] text-[#d6ff38] hover:bg-[#d6ff38]/10 shadow-[0_0_15px_rgba(214,255,56,0.1)] transition-all active:scale-95 disabled:opacity-30"
               >
-                {t('assistant.send', 'Send')}
-                <ArrowUp className="h-4 w-4" />
+                <span className="text-[10px] uppercase tracking-widest">Transmit</span>
+                <ArrowUp className="ml-2 h-3 w-3" />
               </Button>
             </div>
           </div>
@@ -1113,8 +1117,8 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
 
   return (
     <>
-      {/* Floating trigger button (layer 20) */}
-      <div className="fixed bottom-4 right-4 z-20 md:bottom-6 md:right-6">
+      {/* Floating trigger button (layer 100) - Elevated to clear bottom menu bars */}
+      <div className="fixed bottom-24 right-4 z-[100] md:bottom-8 md:right-8">
         <div className="relative flex flex-col items-end gap-3">
           {showGreeting && !isOpen && (
             <div className="flex items-center gap-2 pr-1">
@@ -1163,20 +1167,18 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
         </div>
       </div>
 
-      {/* Backdrop (layer 30) */}
+      {/* Backdrop (layer 110) */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-[4px]"
           onClick={() => setIsOpen(false)}
           aria-hidden
         />
       )}
 
-      {/* Drawer (layer 30) */}
-      <div className={`fixed top-0 right-0 z-30 h-full w-[min(100%,420px)] transform transition-transform duration-200 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-        <div className="h-full">
-          {conversationPanel}
-        </div>
+      {/* Drawer (layer 110) - Floating Card Layout */}
+      <div className={`fixed right-0 bottom-0 md:top-auto z-[110] h-[calc(100dvh-16px)] md:h-[min(840px,calc(100dvh-48px))] w-full md:w-[460px] p-3 md:p-6 transition-all duration-300 ease-in-out ${isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'}`}>
+        {conversationPanel}
       </div>
     </>
   );
