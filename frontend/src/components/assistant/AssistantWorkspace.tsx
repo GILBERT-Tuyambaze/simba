@@ -189,10 +189,9 @@ function getModeTone(mode?: string): string {
 }
 
 const THINKING_STEPS = [
-  '🔍 Searching products...',
-  '🏪 Checking inventory...',
-  '💰 Comparing prices...',
-  '✨ Preparing recommendations...',
+  'Searching products...',
+  'Checking inventory...',
+  'Finding recommendations...',
 ];
 
 function getDefaultPrompts(pageType: string, mode?: string): string[] {
@@ -531,18 +530,6 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
     setMessages((current) => [...current, userMessage]);
     setSimbaContext((current) => appendSimbaMessage(current, userMessage));
 
-    if (productsLoading || products.length === 0) {
-      setMessages((current) => [
-        ...current,
-        {
-          id: createId('assistant'),
-          role: 'assistant',
-          text: t('assistant.catalogLoading', 'The catalog is still syncing. Try again in a moment.'),
-        },
-      ]);
-      return;
-    }
-
     setIsReplying(true);
 
     try {
@@ -612,20 +599,20 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
   const conversationPanel = (
     <section className={isPage 
       ? 'flex flex-col h-full overflow-hidden bg-background border border-[#d6ff38]/40 rounded-2xl shadow-2xl' 
-      : 'flex flex-col h-full overflow-hidden bg-background/95 dark:bg-[#0a0f0a]/95 backdrop-blur-xl border border-[#d6ff38]/30 shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-2xl'
+      : 'flex flex-col h-full overflow-hidden bg-white/92 dark:bg-[#0a0f0a]/95 backdrop-blur-xl border border-[#d6ff38]/30 shadow-[0_0_40px_rgba(0,0,0,0.8)] rounded-2xl'
     }>
       {!isPage && (
-        <div className="border-b border-border bg-muted/30 px-4 py-5 md:px-6">
+        <div className="flex-shrink-0 border-b border-border bg-muted/30 px-4 py-3 md:px-6">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-[#d6ff38]/20 bg-black/40">
                 <img src={BRAND_LOGO_URL} alt={BRAND_TITLE} className="h-8 w-8 object-contain" />
               </div>
               <div>
-                <div className="font-display text-xl uppercase leading-tight text-[#d6ff38] crt-glow">
+                <div className="font-display text-[18px] uppercase leading-tight text-[#d6ff38] crt-glow">
                   {t('assistant.title', 'Simba Assist')}
                 </div>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground mt-1">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/60 mt-1">
                   {t('assistant.subtitle', 'PRODUCT SEARCH • CARTS • DEALS')}
                 </div>
               </div>
@@ -674,13 +661,13 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
         </div>
       )}
 
-      <div className={isPage ? 'grid gap-0 lg:grid-cols-[1.15fr_0.85fr]' : ''}>
-        <div className={isPage ? 'border-r border-border' : ''}>
-          <ScrollArea className={isPage ? 'h-[calc(100vh-12rem)] min-h-[28rem] border-b border-border bg-background' : 'flex-1 h-[400px] md:h-[500px] bg-background/40'}>
-            <div className="space-y-3 px-4 py-4">
+      <div className={isPage ? 'grid gap-0 lg:grid-cols-[1.15fr_0.85fr]' : 'flex-1 flex flex-col min-h-0'}>
+        <div className={isPage ? 'border-r border-border' : 'flex-1 flex flex-col min-h-0'}>
+          <ScrollArea className={isPage ? 'h-[calc(100vh-12rem)] min-h-[28rem] border-b border-border bg-background' : 'flex-1 min-h-0 bg-background/40'}>
+            <div className="space-y-2 px-4 py-2">
               {!messages.some((message) => message.role === 'user') && (
-                <div className="industrial-border bg-muted/40 p-4">
-                  <div className="mb-3 text-[10px] uppercase tracking-[0.24em] text-[#d6ff38]/60 font-bold">
+                <div className="industrial-border bg-muted/40 p-3 mb-2">
+                  <div className="mb-2 text-[10px] uppercase tracking-[0.18em] text-[#d6ff38]/60 font-medium">
                     {t('assistant.tryAsking', 'Try asking')}
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -701,13 +688,13 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
               {messages.map((message) => (
                 <article
                   key={message.id}
-                  className={`max-w-[92%] border px-4 py-4 shadow-sm ${
+                  className={`max-w-[92%] border px-4 py-2 shadow-sm ${
                     message.role === 'assistant'
-                      ? 'border-border bg-card/80 backdrop-blur-md text-card-foreground rounded-tr-xl rounded-br-xl rounded-bl-xl'
-                      : 'ml-auto border-[#d6ff38]/40 bg-[#d6ff38]/10 text-foreground rounded-tl-xl rounded-bl-xl rounded-br-xl'
+                      ? 'border-[#d6ff38]/20 bg-card/60 backdrop-blur-md text-card-foreground rounded-tr-xl rounded-br-xl rounded-bl-xl'
+                      : 'ml-auto border-[rgba(214,255,56,0.30)] bg-[rgba(214,255,56,0.12)] text-foreground rounded-tl-xl rounded-bl-xl rounded-br-xl'
                   }`}
                 >
-                  <div className="mb-2 flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.24em] text-muted-foreground/60 font-bold">
+                  <div className="mb-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 font-medium">
                     <span>
                       {message.role === 'assistant'
                         ? t('assistant.title', 'Simba Assist')
@@ -717,7 +704,7 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                       <span className={`tag ${getModeTone(message.mode)}`}>{getModeLabel(message.mode)}</span>
                     )}
                   </div>
-                  <div className="text-lg leading-[1.7] font-medium">{message.text}</div>
+                  <div className={message.role === 'assistant' ? "text-[15px] leading-[1.6] font-normal" : "text-[15px] leading-[1.5] font-medium"}>{message.text}</div>
 
                   {message.supportReply && (
                     <div className="mt-3 rounded-sm border border-border bg-muted/50 p-3 text-sm">
@@ -812,8 +799,8 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
               ))}
 
               {isReplying && (
-                <article className="max-w-[88%] border border-border bg-muted/30 px-4 py-4 flex flex-col gap-3 rounded-tr-xl rounded-br-xl rounded-bl-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.24em] text-muted-foreground/40 font-bold">
+                <article className="max-w-[88%] border border-[#d6ff38]/20 bg-card/60 backdrop-blur-md px-4 py-3 flex flex-col gap-2 rounded-tr-xl rounded-br-xl rounded-bl-xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.18em] text-[#d6ff38]/40 font-medium">
                     <span>{t('assistant.title', 'Simba Assist')}</span>
                     <Sparkles className="h-3 w-3 text-[#d6ff38] animate-pulse" />
                   </div>
@@ -827,7 +814,7 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                     </div>
                     
                     {/* Rotating Status Text */}
-                    <div className="text-sm text-muted-foreground font-medium transition-all duration-500">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 font-medium transition-all duration-500">
                       {THINKING_STEPS[thinkingStep]}
                     </div>
                   </div>
@@ -839,14 +826,14 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
           </ScrollArea>
 
           {isPage && (
-            <div className="space-y-4 bg-muted/20 border-t border-border px-4 py-6">
+            <div className="space-y-4 bg-muted/20 border-t border-border px-4 py-5">
               <Textarea
                 ref={textareaRef}
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={t('assistant.placeholder', 'Ask for products, deals, or meal ideas...')}
-                className="min-h-[80px] resize-none border-border bg-background text-base"
+                placeholder={t('assistant.placeholder', 'Ask for products, deals, meal ideas, or shopping help...')}
+                className="min-h-[52px] resize-none border-border bg-background text-[15px] rounded-[14px]"
               />
 
               <div className="flex items-center justify-between gap-3">
@@ -874,7 +861,7 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
                 <div className="industrial-border bg-card p-5">
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <div>
-                      <div className="text-xs uppercase tracking-[0.28em] text-muted-foreground">Context</div>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60 font-medium">Context</div>
                       <div className="mt-1 text-lg font-display text-primary crt-glow">{resolvedPageTitle}</div>
                     </div>
                     <span className={`tag uppercase ${getModeTone(latestAssistant?.mode || currentMode)}`}>
@@ -1073,28 +1060,27 @@ export default function AssistantWorkspace({ variant, pageTitle }: AssistantWork
       </div>
 
       {!isPage && (
-        <div className="mt-auto p-4 md:p-6 bg-muted/40 border-t border-border">
-          <div className="relative bg-background border border-border p-2 shadow-sm rounded-xl">
+        <div className="flex-shrink-0 p-4 bg-muted/40 border-t border-border">
+          <div className="relative bg-background/80 backdrop-blur-md border border-border p-2 shadow-lg rounded-[14px]">
             <Textarea
               ref={textareaRef}
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={t('assistant.placeholder', 'Ask for products or deals...')}
-              className="min-h-[60px] w-full resize-none border-0 bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 px-3 py-2 text-base font-sans"
+              placeholder={t('assistant.placeholder', 'Ask for products, deals, meal ideas, or shopping help...')}
+              className="min-h-[52px] w-full resize-none border-0 bg-transparent text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 px-4 py-3 text-[15px] font-sans"
             />
-            <div className="flex items-center justify-between px-2 pb-1">
-              <div className="text-[10px] text-muted-foreground/60 uppercase tracking-widest hidden md:block">
+            <div className="flex items-center justify-between px-3 pb-1">
+              <div className="text-[10px] text-muted-foreground/60 uppercase tracking-[0.18em] font-medium hidden md:block">
                 &gt; USER_INPUT_REQUIRED
               </div>
               <Button
                 type="button"
                 onClick={() => void handleSubmit()}
                 disabled={!draft.trim() || isReplying}
-                className="terminal-btn h-8 px-4 border-[#d6ff38] text-[#d6ff38] hover:bg-[#d6ff38]/10 shadow-[0_0_15px_rgba(214,255,56,0.1)] transition-all active:scale-95 disabled:opacity-30"
+                className="h-10 w-10 rounded-full bg-[#d6ff38] text-black hover:bg-[#d6ff38]/90 shadow-[0_0_15px_rgba(214,255,56,0.2)] transition-all active:scale-95 disabled:opacity-30 disabled:bg-muted p-0 flex items-center justify-center"
               >
-                <span className="text-[10px] uppercase tracking-widest">Transmit</span>
-                <ArrowUp className="ml-2 h-3 w-3" />
+                <ArrowUp className="h-5 w-5" />
               </Button>
             </div>
           </div>

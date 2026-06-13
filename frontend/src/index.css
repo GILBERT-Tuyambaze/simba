@@ -53,17 +53,17 @@
   .light {
     /* Light variant - still industrial but inverted */
     --background: 45 15% 92%;
-    --foreground: 24 18% 12%;
+    --foreground: 0 0% 7%;
     --card: 45 20% 95%;
-    --card-foreground: 24 18% 12%;
+    --card-foreground: 0 0% 7%;
     --popover: 45 20% 95%;
-    --popover-foreground: 24 18% 12%;
-    --primary: 24 92% 48%;
+    --popover-foreground: 0 0% 7%;
+    --primary: 24 90% 35%;
     --primary-foreground: 0 0% 100%;
     --secondary: 45 20% 85%;
-    --secondary-foreground: 24 18% 12%;
+    --secondary-foreground: 0 0% 7%;
     --muted: 45 15% 85%;
-    --muted-foreground: 24 12% 35%;
+    --muted-foreground: 215 16% 27%;
     --accent: 15 90% 45%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 85% 45%;
@@ -309,11 +309,29 @@
 
   .light .hero-surface {
     background-image:
-      linear-gradient(to right, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.3)),
+      linear-gradient(to right, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.20)),
       url("https://i.pinimg.com/1200x/b7/0f/20/b70f2073b266e466231f338b5a3c32a1.jpg");
     background-size: cover, cover;
     background-position: center center, center center;
     background-repeat: no-repeat;
+  }
+
+  /* Hero section text contrast for Light Mode when overlay is lighter */
+  .light .hero-surface h1,
+  .light .hero-surface h2,
+  .light .hero-surface p,
+  .light .hero-surface .text-white,
+  .light .hero-surface .text-white\/80,
+  .light .hero-surface .text-white\/90 {
+    color: #111111 !important;
+    text-shadow: none;
+  }
+
+  .light .hero-surface .bg-white\/10,
+  .light .hero-surface .bg-black\/30 {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+    border-color: rgba(0, 0, 0, 0.1) !important;
+    color: #111111 !important;
   }
 
   .why-shop-card {

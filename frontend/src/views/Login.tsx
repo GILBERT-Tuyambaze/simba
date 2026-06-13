@@ -173,7 +173,6 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resetSent, setResetSent] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -432,7 +431,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="hero-surface relative overflow-hidden">
         <div className="absolute inset-0 grid-bg opacity-40" />
-        <div className="absolute inset-0 bg-background/35" />
+        <div className="absolute inset-0 dark:bg-background/35 bg-white/10" />
 
         <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-4 py-10">
           <div className="mb-8">
@@ -472,7 +471,7 @@ export default function LoginPage() {
                 ].map((item) => (
                   <div
                     key={item}
-                    className="border border-border bg-card/80 px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted-foreground backdrop-blur-sm"
+                    className="border border-border dark:bg-card/80 bg-white/90 px-4 py-3 text-xs uppercase tracking-[0.2em] text-muted-foreground backdrop-blur-sm"
                   >
                     <Sparkles className="mb-2 h-4 w-4 text-primary" />
                     {item}
@@ -480,7 +479,7 @@ export default function LoginPage() {
                 ))}
               </div>
 
-              <div className="max-w-xl space-y-3 border border-border/60 bg-card/82 p-4 text-sm text-muted-foreground backdrop-blur-sm">
+              <div className="max-w-xl space-y-3 border border-border/60 dark:bg-card/82 bg-white/85 p-4 text-sm text-muted-foreground backdrop-blur-sm">
                 <div className="flex items-start gap-3">
                   <Lock className="mt-0.5 h-4 w-4 text-primary" />
                   <p>
@@ -513,8 +512,8 @@ export default function LoginPage() {
               </div>
             </section>
 
-            <Card className="industrial-border bg-card/92 backdrop-blur scanlines">
-              <CardHeader className="border-b border-border/50 pb-6">
+            <Card className="industrial-border dark:bg-card/92 bg-white/92 dark:backdrop-blur-sm backdrop-blur-2xl scanlines shadow-2xl border-black/5">
+              <CardHeader className="dark:border-b border-b dark:border-border/50 border-black/10 pb-6">
                 <CardTitle className="font-display text-2xl text-primary crt-glow">
                   {t('auth.signInTitle')}
                 </CardTitle>
@@ -543,7 +542,6 @@ export default function LoginPage() {
                   onOpenChange={(open) => {
                     if (!open) {
                       setError(null);
-                      setResetSent(false);
                       setVerificationSent(false);
                     }
                     setAlertOpen(open);
@@ -551,8 +549,6 @@ export default function LoginPage() {
                   title={
                     verificationSent
                       ? 'Verification email sent'
-                      : resetSent
-                      ? 'Password reset sent'
                       : t('auth.signInFailed')
                   }
                   description={
@@ -560,7 +556,7 @@ export default function LoginPage() {
                       ? visibleError
                       : verificationSent
                       ? 'Please check your inbox and click the verification link to complete your sign up.'
-                      : t('auth.resetSent')
+                      : ''
                   }
                   variant={visibleError ? 'error' : 'success'}
                 />
@@ -651,14 +647,12 @@ export default function LoginPage() {
                   </div>
 
                   <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-[0.2em] text-muted-foreground">
-                    <button
-                      type="button"
-                      onClick={handlePasswordReset}
-                      disabled={busy || supabaseMissing || !email.trim()}
-                      className="text-left text-primary transition-colors hover:text-primary/80 disabled:cursor-not-allowed disabled:text-muted-foreground"
+                    <Link
+                      to="/forgot-password"
+                      className="text-left text-primary transition-colors hover:text-primary/80"
                     >
                       {t('auth.resetPassword')}
-                    </button>
+                    </Link>
                     <span>{getReturnPathLabel(t, returnPath)}</span>
                   </div>
                 </form>

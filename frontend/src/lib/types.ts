@@ -65,8 +65,11 @@ export interface Order {
   address: string;
   phone: string;
   payment_method: string;
+  payment_status?: string | null;
   status: string;
   tracking_number: string;
+  branch_id?: number | null;
+  assigned_branch_id?: number | null;
   assigned_branch?: string | null;
   assigned_staff_id?: string | null;
   assigned_staff_name?: string | null;
@@ -78,8 +81,10 @@ export interface Order {
   rating?: number | null;
   review_comment?: string | null;
   review_branch?: string | null;
+  review_branch_id?: number | null;
   timeline?: Array<{ status: string; label: string; at?: string | null }>;
-  created_at: string;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface UserProfile {

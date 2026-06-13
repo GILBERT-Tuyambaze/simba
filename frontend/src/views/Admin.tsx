@@ -64,6 +64,7 @@ import {
 } from '@/lib/admin';
 import { useProducts } from '@/hooks/useProducts';
 import { getProductStockForBranch } from '@/lib/product-stock';
+import { supabase } from '@/lib/supabase';
 import {
   BRANCHES,
   CartItem,
@@ -161,7 +162,7 @@ function normalizeText(value?: string | null): string {
 }
 
 function parseDate(value?: string | null): Date | null {
-  if (!value) {
+  if (!value || value.trim() === '') {
     return null;
   }
 
@@ -181,6 +182,22 @@ function formatShortDate(value?: string | null): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+function resolveOrderTimestamp(order: Order): string | null {
+  if (order.created_at) {
+    return order.created_at;
+  }
+
+  if (order.updated_at) {
+    return order.updated_at;
+  }
+
+  if (Array.isArray(order.timeline) && order.timeline.length > 0) {
+    return order.timeline[0]?.at || null;
+  }
+
+  return null;
 }
 
 function formatDayLabel(date: Date): string {
@@ -210,13 +227,24 @@ function parseOrderItems(items: string): CartItem[] {
       console.warn('[AUDIT] parseOrderItems: Expected array but got:', typeof parsed);
       return [];
     }
-    return parsed.filter((item) => {
-      if (!item.product_id) {
-        console.warn('[AUDIT] parseOrderItems: Item missing product_id:', item);
-        return false;
-      }
-      return true;
-    });
+
+    return parsed
+      .map((item) => ({
+        product_id: Number(item.product_id || 0),
+        product_name: String(item.product_name || ''),
+        price: Number(item.price || 0),
+        quantity: Number(item.quantity || 0),
+        image: item.image || '',
+        unit: item.unit || '',
+        branch: item.branch || undefined,
+      }))
+      .filter((item) => {
+        if (!item.product_id) {
+          console.warn('[AUDIT] parseOrderItems: Item missing product_id:', item);
+          return false;
+        }
+        return true;
+      });
   } catch (error) {
     console.error('[AUDIT] parseOrderItems: Failed to parse JSON:', error instanceof Error ? error.message : String(error));
     return [];
@@ -792,34 +820,97 @@ export default function Admin() {
     }
   }
 
-  const productById = useMemo(
-    () => new Map(products.map((product) => [product.id, product])),
-    [products]
-  );
+  const branchFilterMeta = useMemo(() => {
+    if (branchFilter === 'all') {
+      return { name: 'all', branchId: null as number | null };
+    }
+
+    const normalizedBranch = normalizeText(branchFilter);
+    const matchingOrder = orders.find(
+      (order) => normalizeText(order.branch) === normalizedBranch && order.branch_id != null
+    );
+
+    return {
+      name: normalizedBranch,
+      branchId: matchingOrder?.branch_id ?? null,
+    };
+  }, [branchFilter, orders]);
 
   const visibleOrders = useMemo(() => {
     const startDate = getRangeStart(range);
-    const normalizedBranch = normalizeText(branchFilter);
 
     return [...orders]
       .filter((order) => {
-        const createdAt = parseDate(order.created_at);
-        if (startDate && (!createdAt || createdAt < startDate)) {
-          return false;
-        }
+        const createdAt = parseDate(resolveOrderTimestamp(order));
+        const datePass = !(startDate && (!createdAt || createdAt < startDate));
+        const branchPass =
+          branchFilterMeta.name === 'all'
+            ? true
+            : normalizeText(order.branch) === branchFilterMeta.name ||
+              (branchFilterMeta.branchId != null && order.branch_id === branchFilterMeta.branchId);
 
-        if (branchFilter !== 'all') {
-          return normalizeText(order.branch) === normalizedBranch;
-        }
-
-        return true;
+        return datePass && branchPass;
       })
       .sort((a, b) => {
-        const aDate = parseDate(a.created_at)?.getTime() || 0;
-        const bDate = parseDate(b.created_at)?.getTime() || 0;
+        const aDate = parseDate(resolveOrderTimestamp(a))?.getTime() || 0;
+        const bDate = parseDate(resolveOrderTimestamp(b))?.getTime() || 0;
         return bDate - aDate;
       });
-  }, [branchFilter, orders, range]);
+  }, [branchFilterMeta, orders, range]);
+
+  const orderItemProductIds = useMemo(() => {
+    const ids = new Set<number>();
+    visibleOrders.forEach((order) => {
+      const items = parseOrderItems(order.items);
+      items.forEach((item) => {
+        if (item.product_id) {
+          ids.add(Number(item.product_id));
+        }
+      });
+    });
+    return Array.from(ids).sort((a, b) => a - b);
+  }, [visibleOrders]);
+
+  const [orderProducts, setOrderProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    let mounted = true;
+
+    if (orderItemProductIds.length === 0) {
+      setOrderProducts([]);
+      return;
+    }
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('product_catalog')
+        .select('*')
+        .in('id', orderItemProductIds)
+        .limit(orderItemProductIds.length);
+
+      if (error) {
+        console.warn('[AUDIT] Failed to load order item products:', error.message);
+        return;
+      }
+
+      if (mounted) {
+        setOrderProducts(((data || []) as Product[]).map((product) => ({
+          ...product,
+          price: Number(product.price || 0),
+        })));
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [orderItemProductIds]);
+
+  const productById = useMemo(() => {
+    const map = new Map<number, Product>();
+    products.forEach((product) => map.set(product.id, product));
+    orderProducts.forEach((product) => map.set(product.id, product));
+    return map;
+  }, [products, orderProducts]);
 
   const visibleProfiles = useMemo(() => {
     if (branchFilter === 'all') {
@@ -962,28 +1053,41 @@ export default function Admin() {
     ? totalRevenue / visibleOrders.length
     : 0;
 
-  const waitingOrders = visibleOrders.filter((order) =>
-    ['pending', 'awaiting_payment', 'awaiting_confirmation'].includes(
-      getStatusKey(order.status)
-    )
-  );
-  const processingOrders = visibleOrders.filter(
-    (order) => getStatusKey(order.status) === 'processing'
-  );
-  const shippedOrders = visibleOrders.filter(
-    (order) => getStatusKey(order.status) === 'shipped'
-  );
-  const deliveredOrders = visibleOrders.filter(
-    (order) => getStatusKey(order.status) === 'delivered'
-  );
-  const cancelledOrders = visibleOrders.filter(
-    (order) => getStatusKey(order.status) === 'cancelled'
-  );
-  const incomingOrders = visibleOrders.filter((order) =>
-    ['pending', 'awaiting_payment', 'awaiting_confirmation', 'processing', 'shipped'].includes(
-      getStatusKey(order.status)
-    )
-  );
+  const waitingOrders = visibleOrders.filter((order) => {
+    const statusKey = getStatusKey(order.status);
+    const pass = ['pending', 'awaiting_payment', 'awaiting_confirmation'].includes(statusKey);
+    return pass;
+  });
+
+  const processingOrders = visibleOrders.filter((order) => {
+    const statusKey = getStatusKey(order.status);
+    const pass = statusKey === 'processing';
+    return pass;
+  });
+
+  const shippedOrders = visibleOrders.filter((order) => {
+    const statusKey = getStatusKey(order.status);
+    const pass = statusKey === 'shipped';
+    return pass;
+  });
+
+  const deliveredOrders = visibleOrders.filter((order) => {
+    const statusKey = getStatusKey(order.status);
+    const pass = statusKey === 'delivered';
+    return pass;
+  });
+
+  const cancelledOrders = visibleOrders.filter((order) => {
+    const statusKey = getStatusKey(order.status);
+    const pass = statusKey === 'cancelled';
+    return pass;
+  });
+
+  const incomingOrders = visibleOrders.filter((order) => {
+    const statusKey = getStatusKey(order.status);
+    const pass = ['pending', 'awaiting_payment', 'awaiting_confirmation', 'processing', 'shipped'].includes(statusKey);
+    return pass;
+  });
   const isDeliveryAgent = authState.accessRole === 'delivery_agent';
   const isBranchOperator = ['super_admin', 'branch_manager', 'branch_staff'].includes(
     normalizeStoreRole(authState.accessRole)
@@ -1017,32 +1121,40 @@ export default function Admin() {
   }, [visibleOrders]);
 
   const branchSummary = useMemo<BranchPoint[]>(() => {
-    return BRANCHES.map((branch) => {
-      const branchOrders = visibleOrders.filter(
-        (order) => normalizeText(order.branch) === normalizeText(branch)
-      );
+    const branchMap = new Map<string, { branch: string; orders: number; revenue: number }>();
 
-      const revenue = branchOrders.reduce(
-        (sum, order) => sum + (Number(order.total) || 0),
-        0
-      );
+    visibleOrders.forEach((order) => {
+      const key = order.branch_id != null ? `id:${order.branch_id}` : `name:${normalizeText(order.branch)}`;
+      const branchName = order.branch || 'Unknown branch';
+      const existing = branchMap.get(key);
 
-      return {
-        branch,
-        orders: branchOrders.length,
-        revenue,
+      if (existing) {
+        existing.orders += 1;
+        existing.revenue += Number(order.total) || 0;
+      } else {
+        branchMap.set(key, {
+          branch: branchName,
+          orders: 1,
+          revenue: Number(order.total) || 0,
+        });
+      }
+    });
+
+    return Array.from(branchMap.values())
+      .map((entry) => ({
+        ...entry,
         share: visibleOrders.length
-          ? Math.round((branchOrders.length / visibleOrders.length) * 100)
+          ? Math.round((entry.orders / visibleOrders.length) * 100)
           : 0,
-      };
-    }).sort((a, b) => b.revenue - a.revenue);
+      }))
+      .sort((a, b) => b.revenue - a.revenue);
   }, [visibleOrders]);
 
   const revenueTrend = useMemo<RevenuePoint[]>(() => {
     const map = new Map<number, RevenuePoint>();
 
     visibleOrders.forEach((order) => {
-      const date = parseDate(order.created_at);
+      const date = parseDate(resolveOrderTimestamp(order));
       if (!date) {
         return;
       }

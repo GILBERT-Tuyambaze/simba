@@ -46,7 +46,13 @@ export async function fetchAccountOrders(): Promise<Order[]> {
     throw error;
   }
 
-  return (data || []).map(mapSupabaseOrder);
+  const mapped = (data || []).map(mapSupabaseOrder);
+  const mappedOne = mapped.find((o) => Number(o.id) === 1);
+  if (mappedOne) {
+    // No temporary audit log retained
+  }
+
+  return mapped;
 }
 
 export async function fetchAccountProfile(): Promise<AccountProfileRecord | null> {

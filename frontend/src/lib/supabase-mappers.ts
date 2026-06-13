@@ -58,7 +58,14 @@ export function mapSupabaseOrder(row: any): Order {
     user_id: String(row.user_id || ''),
     customer_name: row.customer_name || '',
     branch: branchName,
+    branch_id: row.branch_id ?? null,
+    assigned_branch_id: row.assigned_branch_id ?? null,
     assigned_branch: assignedBranchName,
+    review_branch_id: row.review_branch_id ?? null,
+    assigned_staff_id: row.assigned_staff_id || null,
+    assigned_staff_name: row.assigned_staff?.display_name || null,
+    assigned_delivery_agent_id: row.assigned_delivery_agent_id || null,
+    assigned_delivery_agent_name: row.assigned_delivery_agent?.display_name || null,
     items: JSON.stringify(finalItems),
     subtotal: Number(row.subtotal || 0),
     shipping: Number(row.shipping || 0),
@@ -70,18 +77,16 @@ export function mapSupabaseOrder(row: any): Order {
     address: row.address || '',
     phone: row.phone || '',
     payment_method: row.payment_method || 'mtn_momo',
+    payment_status: row.payment_status || null,
     status: row.status || 'pending',
     tracking_number: row.tracking_number || '',
-    assigned_staff_id: row.assigned_staff_id || null,
-    assigned_staff_name: row.assigned_staff?.display_name || null,
-    assigned_delivery_agent_id: row.assigned_delivery_agent_id || null,
-    assigned_delivery_agent_name: row.assigned_delivery_agent?.display_name || null,
     pickup_time: row.pickup_time || null,
     rating: row.rating ?? null,
     review_comment: row.review_comment || null,
     review_branch: reviewBranchName,
     timeline: Array.isArray(row.timeline) ? row.timeline : [],
-    created_at: row.created_at || '',
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
   };
 }
 
@@ -97,7 +102,7 @@ export function mapSupabaseProfile(row: any): UserProfile {
     addresses: typeof row.addresses === 'string' ? row.addresses : JSON.stringify(row.addresses || []),
     preferred_payment_method: row.preferred_payment_method || null,
     no_show_flags: Number(row.no_show_flags || 0),
-    created_at: row.created_at || '',
+    created_at: row.created_at ?? null,
   };
 }
 

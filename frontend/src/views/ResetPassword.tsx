@@ -107,74 +107,81 @@ export default function ResetPasswordPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <Header />
-      <div className="flex-1 flex items-center justify-center px-4 py-10">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <div className="flex items-center gap-2 mb-2">
-              <Lock className="h-5 w-5 text-primary" />
-              <CardTitle className="text-xl">{t('auth.resetPassword')}</CardTitle>
-            </div>
-            <CardDescription>
-              Enter your new password to reset your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="password">{t('auth.password')}</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder={t('auth.password')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="new-password"
-                />
+ return (
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="hero-surface relative overflow-hidden flex flex-col min-h-screen">
+        <div className="absolute inset-0 grid-bg opacity-40" />
+        <div className="absolute inset-0 dark:bg-background/35 bg-white/10" />
+        <Header />
+
+        <main className="relative flex-1 flex items-center justify-center px-4 py-10">
+          <Card className="industrial-border dark:bg-card/92 bg-white/92 dark:backdrop-blur-sm backdrop-blur-2xl scanlines shadow-2xl border-black/5 w-full max-w-md">
+            <CardHeader className="dark:border-b border-b dark:border-border/50 border-black/10 pb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Lock className="h-5 w-5 text-primary" />
+                <CardTitle className="font-display text-2xl text-primary crt-glow">
+                  {t('auth.resetPassword')}
+                </CardTitle>
               </div>
+              <CardDescription>
+                Enter your new password to reset your account access.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="password">{t('auth.password')}</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={t('auth.password')}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    autoComplete="new-password"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirm-password">Confirm Password</Label>
-                <Input
-                  id="confirm-password"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="new-password"
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={loading}
+                    autoComplete="new-password"
+                  />
+                </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Resetting...' : 'Reset Password'}
-              </Button>
-            </form>
-
-            <MessageDialog
-              open={alertOpen}
-              onOpenChange={(open) => {
-                if (!open && !success) {
-                  setError(null);
-                }
-                setAlertOpen(open);
-              }}
-              title={success ? 'Password reset successful' : 'Error'}
-              description={
-                success
-                  ? 'Your password has been reset. You will be redirected to login.'
-                  : error || 'An error occurred.'
-              }
-              variant={success ? 'success' : 'error'}
-              actionLabel={success ? 'Go to Login' : 'Try Again'}
-            />
-          </CardContent>
-        </Card>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Updating...' : 'Update Password'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </main>
+        <Footer />
       </div>
-      <Footer />
+
+      <MessageDialog
+        open={alertOpen}
+        onOpenChange={(open) => {
+          if (!open && !success) {
+            setError(null);
+          }
+          setAlertOpen(open);
+        }}
+        title={success ? 'Password reset successful' : 'Error'}
+        description={
+          success
+            ? 'Your password has been reset. You will be redirected to login.'
+            : error || 'An error occurred.'
+        }
+        variant={success ? 'success' : 'error'}
+        actionLabel={success ? 'Go to Login' : 'Try Again'}
+      />
     </div>
   );
 }
